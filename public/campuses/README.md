@@ -20,6 +20,14 @@ automatically as the hero image in that campus's info panel.
 | `port-st-lucie.jpg`    | Port St. Lucie Campus            |
 | `new-port-richey.jpg`  | New Port Richey Campus           |
 | `latin-american.jpg`   | Latin American Campus (Nicaragua)|
+| `santa-cruz.jpg`       | International University of Santa Cruz (Bolivia) |
+| `ista-ecuador.jpg`     | Instituto Superior Técnico Americano (Ecuador) |
+| `usil-peru.jpg`        | Center for Global Education at USIL (Peru) |
+| `spain.jpg`            | American College in Spain        |
+| `garodia-india.jpg`    | Garodia International College (India) |
+| `sampoerna-indonesia.jpg` | Sampoerna University (Indonesia) |
+| `sri-lanka.jpg`        | American College of Higher Education (Sri Lanka) |
+| `vietnam.jpg`          | Keiser University Vietnam        |
 | `online.jpg`           | Keiser University Online         |
 
 Notes:
