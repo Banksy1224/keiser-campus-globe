@@ -19,6 +19,11 @@ export interface Campus {
   lng: number;
   /** Flagship anchor for the great-circle network drawn on the globe. */
   flagship?: boolean;
+  /**
+   * Optional campus photo. If omitted, the UI looks for `/campuses/<id>.jpg`
+   * and otherwise falls back to the brand gradient. Can also be a full URL.
+   */
+  photo?: string;
   tagline: string;
   description: string;
   established: string;
