@@ -6,7 +6,7 @@
 // tool. Rosters and details should be reconciled against official Keiser data
 // before being used with live prospects.
 
-export type CampusRegion = "Florida" | "Latin America" | "Online & Global";
+export type CampusRegion = "Florida" | "Latin America" | "Global Campuses" | "Online & Global";
 
 export interface Campus {
   id: string;
@@ -290,6 +290,170 @@ export const CAMPUSES: Campus[] = [
     ],
     skyline: [0.75, 0.6, 0.85, 0.55, 0.7, 0.5],
   },
+
+  // ---- Latin American global network partners --------------------------
+  {
+    id: "santa-cruz",
+    name: "International University of Santa Cruz",
+    city: "Santa Cruz de la Sierra, Bolivia",
+    region: "Latin America",
+    lat: -17.7833,
+    lng: -63.1821,
+    tagline: "Keiser's gateway to Bolivia.",
+    description:
+      "Part of Keiser University's global network, the International University of Santa Cruz extends an American-style higher-education experience to Bolivia's largest and fastest-growing city, connecting Bolivian students to Keiser's worldwide academic community.",
+    established: "Keiser global campus",
+    setting: "International partner campus",
+    programs: ["International Business", "English Language", "Hospitality Management", "Psychology"],
+    highlights: [
+      "American-style curriculum in Bolivia",
+      "Pathways to Keiser's Florida campuses",
+      "Global student community",
+    ],
+    skyline: [0.6, 0.7, 0.55, 0.65, 0.5, 0.6],
+  },
+  {
+    id: "ista-ecuador",
+    name: "Instituto Superior Técnico Americano",
+    city: "Guayaquil, Ecuador",
+    region: "Latin America",
+    lat: -2.1962,
+    lng: -79.8862,
+    tagline: "American technical education in Ecuador.",
+    description:
+      "A Keiser University global partner, the Instituto Superior Técnico Americano brings career-focused, American-style technical and professional programs to Ecuador, with academic ties back to Keiser's U.S. campuses.",
+    established: "Keiser global campus",
+    setting: "International partner campus",
+    programs: ["Business Administration", "Information Technology", "English Language", "Tourism"],
+    highlights: [
+      "Career-focused technical programs",
+      "Bridge to U.S. study",
+      "Located in Ecuador's largest city",
+    ],
+    skyline: [0.55, 0.6, 0.7, 0.5, 0.6, 0.5],
+  },
+  {
+    id: "usil-peru",
+    name: "Center for Global Education at USIL",
+    city: "Lima, Peru",
+    region: "Latin America",
+    lat: -12.0851,
+    lng: -76.947,
+    tagline: "A global classroom in Lima.",
+    description:
+      "Hosted at the Universidad San Ignacio de Loyola, the Center for Global Education connects Peruvian students with Keiser University's international programs and study-abroad pathways, blending local and American academic traditions.",
+    established: "Keiser global campus",
+    setting: "Center for Global Education",
+    programs: ["International Business", "Hospitality Management", "English Language", "Communications"],
+    highlights: [
+      "Hosted at USIL in Lima",
+      "Study-abroad pathways to Florida",
+      "Internationally connected faculty",
+    ],
+    skyline: [0.7, 0.6, 0.8, 0.55, 0.65, 0.5],
+  },
+
+  // ---- Global campuses (Europe, Asia) ----------------------------------
+  {
+    id: "spain",
+    name: "American College in Spain",
+    city: "Marbella, Spain",
+    region: "Global Campuses",
+    lat: 36.5101,
+    lng: -4.8856,
+    tagline: "An American degree on the Costa del Sol.",
+    description:
+      "Part of Keiser University's global network, the American College in Spain offers a U.S.-style, English-language university experience on Spain's Mediterranean coast — a launchpad for students who want an international education with a European setting.",
+    established: "Keiser global campus",
+    setting: "Mediterranean coastal campus",
+    programs: ["International Business", "Hospitality Management", "Marketing", "English Language"],
+    highlights: [
+      "English-language American curriculum",
+      "Costa del Sol location",
+      "Transfer pathways across the Keiser network",
+    ],
+    skyline: [0.6, 0.7, 0.55, 0.75, 0.5, 0.65],
+  },
+  {
+    id: "garodia-india",
+    name: "Garodia International College",
+    city: "Mumbai, India",
+    region: "Global Campuses",
+    lat: 19.0833,
+    lng: 72.908,
+    tagline: "Keiser's partner in Mumbai.",
+    description:
+      "A Keiser University global partner in Mumbai, Garodia International College offers internationally aligned, career-focused programs that connect Indian students to Keiser's worldwide academic community and U.S. study options.",
+    established: "Keiser global campus",
+    setting: "Urban international campus",
+    programs: ["Business Administration", "Information Technology", "Commerce", "English Language"],
+    highlights: [
+      "International curriculum in Mumbai",
+      "Pathways to U.S. campuses",
+      "Industry-connected programs",
+    ],
+    skyline: [0.7, 0.85, 0.6, 0.75, 0.55, 0.7],
+  },
+  {
+    id: "sampoerna-indonesia",
+    name: "Sampoerna University",
+    city: "Jakarta, Indonesia",
+    region: "Global Campuses",
+    lat: -6.2241,
+    lng: 106.813,
+    tagline: "American-accredited education in Indonesia.",
+    description:
+      "Through its partnership with Keiser University, Sampoerna University offers Indonesian students access to American-style, English-language degree programs and credit pathways to study in the United States.",
+    established: "Keiser global partner",
+    setting: "Metropolitan university campus",
+    programs: ["Business", "Engineering", "Education", "Information Technology"],
+    highlights: [
+      "U.S. credit-transfer pathways",
+      "English-language programs",
+      "Located in Jakarta",
+    ],
+    skyline: [0.75, 0.7, 0.85, 0.6, 0.7, 0.55],
+  },
+  {
+    id: "sri-lanka",
+    name: "American College of Higher Education",
+    city: "Kandy, Sri Lanka",
+    region: "Global Campuses",
+    lat: 7.2906,
+    lng: 80.6337,
+    tagline: "Keiser's campus in Sri Lanka.",
+    description:
+      "A Keiser University global partner, the American College of Higher Education brings American-style, English-language higher education to Kandy, opening international degree and transfer pathways for Sri Lankan students.",
+    established: "Keiser global campus",
+    setting: "International partner campus",
+    programs: ["Business Administration", "Information Technology", "English Language", "Psychology"],
+    highlights: [
+      "American curriculum in Kandy",
+      "Transfer pathways to Florida",
+      "Globally connected faculty",
+    ],
+    skyline: [0.6, 0.65, 0.7, 0.5, 0.6, 0.55],
+  },
+  {
+    id: "vietnam",
+    name: "Keiser University Vietnam",
+    city: "Ho Chi Minh City, Vietnam",
+    region: "Global Campuses",
+    lat: 10.7769,
+    lng: 106.7009,
+    tagline: "An American university in Vietnam.",
+    description:
+      "Keiser University Vietnam extends Keiser's American, English-language model to one of Southeast Asia's most dynamic cities, giving Vietnamese students international degree programs and direct pathways into the wider Keiser network.",
+    established: "Keiser global campus",
+    setting: "International campus",
+    programs: ["International Business", "Information Technology", "Hospitality Management", "English Language"],
+    highlights: [
+      "American degree programs in Vietnam",
+      "Pathways to U.S. study",
+      "Located in Ho Chi Minh City",
+    ],
+    skyline: [0.7, 0.8, 0.6, 0.75, 0.55, 0.65],
+  },
   {
     id: "online",
     name: "Keiser University Online",
@@ -308,7 +472,12 @@ export const CAMPUSES: Campus[] = [
   },
 ];
 
-export const REGIONS: CampusRegion[] = ["Florida", "Latin America", "Online & Global"];
+export const REGIONS: CampusRegion[] = [
+  "Florida",
+  "Latin America",
+  "Global Campuses",
+  "Online & Global",
+];
 
 export function getFlagship(): Campus {
   return CAMPUSES.find((c) => c.flagship) ?? CAMPUSES[0];
