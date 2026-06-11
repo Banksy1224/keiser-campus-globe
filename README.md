@@ -58,6 +58,24 @@ npm run build      # type-check + production build
 npm run preview    # preview the production build
 ```
 
+## Live preview (GitHub Pages)
+
+This repo auto-deploys to GitHub Pages on every push to `main` via
+[`.github/workflows/deploy.yml`](.github/workflows/deploy.yml).
+
+**One-time setup:** in the repo on GitHub, go to **Settings → Pages → Build and
+deployment** and set **Source = GitHub Actions**. After the next push to `main`
+(or a manual run from the **Actions** tab), the site goes live at:
+
+```
+https://banksy1224.github.io/keiser-campus-globe/
+```
+
+The build runs on GitHub's runners, so it isn't affected by any local network
+restrictions. The production base path is set to `/keiser-campus-globe/` in
+[`vite.config.ts`](vite.config.ts); override it with the `VITE_BASE` env var if
+you attach a custom domain.
+
 ## Tuning knobs
 
 Most of the "feel" lives in constants at the top of

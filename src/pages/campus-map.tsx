@@ -609,7 +609,7 @@ export default function CampusMap() {
       <header className="pointer-events-none absolute inset-x-0 top-0 flex items-start justify-between p-4 sm:p-6">
         <div className="pointer-events-auto">
           <div className="flex items-center gap-2">
-            <img src="/globe.svg" alt="" className="h-7 w-7" />
+            <img src={`${import.meta.env.BASE_URL}globe.svg`} alt="" className="h-7 w-7" />
             <h1 className="text-lg font-extrabold tracking-tight text-keiser-gold sm:text-xl">
               Keiser University · Campus Ecosystem
             </h1>
@@ -673,21 +673,7 @@ export default function CampusMap() {
       {selected && !inTour && (
         <section className="absolute right-4 top-24 bottom-28 w-[min(92vw,22rem)] animate-fade-in sm:right-6">
           <div className="flex h-full flex-col overflow-hidden rounded-2xl border border-keiser-gold/30 bg-keiser-navy/85 shadow-2xl backdrop-blur-md">
-            <div className="relative bg-gradient-to-br from-keiser-blue to-keiser-navy p-5">
-              <button
-                onClick={closePanel}
-                className="absolute right-3 top-3 rounded-full bg-white/10 p-1.5 text-slate-200 transition hover:bg-white/20"
-                aria-label="Close"
-              >
-                <CloseIcon />
-              </button>
-              <span className="text-[11px] font-semibold uppercase tracking-wider text-keiser-gold/80">
-                {selected.region}
-              </span>
-              <h2 className="mt-1 text-xl font-extrabold text-white">{selected.name}</h2>
-              <p className="text-sm text-slate-300/80">{selected.city}</p>
-              <p className="mt-2 text-sm italic text-keiser-gold">“{selected.tagline}”</p>
-            </div>
+            <CampusHero key={selected.id} campus={selected} onClose={closePanel} />
 
             <div className="scroll-slim flex-1 space-y-4 overflow-y-auto p-5">
               <p className="text-sm leading-relaxed text-slate-200/90">{selected.description}</p>
@@ -802,6 +788,46 @@ export default function CampusMap() {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+// ---- Campus panel hero: real photo when available, gradient fallback -------
+function CampusHero({ campus, onClose }: { campus: Campus; onClose: () => void }) {
+  // Resolve an explicit photo URL, else a conventional drop-in path. If the
+  // file is missing (or fails to load) we fall back to the brand gradient, so
+  // the panel always looks intentional whether or not photos are present.
+  const src = campus.photo ?? `${import.meta.env.BASE_URL}campuses/${campus.id}.jpg`;
+  const [hasPhoto, setHasPhoto] = useState(true);
+
+  return (
+    <div className="relative min-h-[8.5rem] overflow-hidden bg-gradient-to-br from-keiser-blue to-keiser-navy p-5">
+      {hasPhoto && (
+        <img
+          src={src}
+          alt={`${campus.name} campus`}
+          onError={() => setHasPhoto(false)}
+          className="absolute inset-0 h-full w-full object-cover"
+        />
+      )}
+      {/* Dark overlay keeps text legible over any photo. */}
+      <div className="absolute inset-0 bg-gradient-to-t from-keiser-navy via-keiser-navy/55 to-keiser-navy/10" />
+
+      <div className="relative">
+        <button
+          onClick={onClose}
+          className="absolute right-0 top-0 rounded-full bg-black/40 p-1.5 text-slate-100 transition hover:bg-black/60"
+          aria-label="Close"
+        >
+          <CloseIcon />
+        </button>
+        <span className="text-[11px] font-semibold uppercase tracking-wider text-keiser-gold">
+          {campus.region}
+        </span>
+        <h2 className="mt-1 text-xl font-extrabold text-white drop-shadow">{campus.name}</h2>
+        <p className="text-sm text-slate-200 drop-shadow">{campus.city}</p>
+        <p className="mt-2 text-sm italic text-keiser-gold drop-shadow">“{campus.tagline}”</p>
+      </div>
     </div>
   );
 }
