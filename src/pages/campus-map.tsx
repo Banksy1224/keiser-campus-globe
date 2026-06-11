@@ -609,7 +609,7 @@ export default function CampusMap() {
       <header className="pointer-events-none absolute inset-x-0 top-0 flex items-start justify-between p-4 sm:p-6">
         <div className="pointer-events-auto">
           <div className="flex items-center gap-2">
-            <img src="/globe.svg" alt="" className="h-7 w-7" />
+            <img src={`${import.meta.env.BASE_URL}globe.svg`} alt="" className="h-7 w-7" />
             <h1 className="text-lg font-extrabold tracking-tight text-keiser-gold sm:text-xl">
               Keiser University · Campus Ecosystem
             </h1>
@@ -797,7 +797,7 @@ function CampusHero({ campus, onClose }: { campus: Campus; onClose: () => void }
   // Resolve an explicit photo URL, else a conventional drop-in path. If the
   // file is missing (or fails to load) we fall back to the brand gradient, so
   // the panel always looks intentional whether or not photos are present.
-  const src = campus.photo ?? `/campuses/${campus.id}.jpg`;
+  const src = campus.photo ?? `${import.meta.env.BASE_URL}campuses/${campus.id}.jpg`;
   const [hasPhoto, setHasPhoto] = useState(true);
 
   return (
