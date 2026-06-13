@@ -102,6 +102,26 @@ export const CAMPUSES: Campus[] = [
     skyline: [0.7, 0.5, 0.8, 0.55, 0.6, 0.45],
   },
   {
+    id: "pembroke-pines",
+    name: "Pembroke Pines Campus",
+    city: "Pembroke Pines, FL",
+    region: "Florida",
+    lat: 26.0078,
+    lng: -80.2963,
+    tagline: "Healthcare careers in southern Broward.",
+    description:
+      "The Pembroke Pines campus serves the fast-growing communities of southern Broward County with hands-on nursing and allied-health programs and easy access to South Florida's hospital network for clinical placements.",
+    established: "Broward County campus",
+    setting: "Suburban health-sciences campus",
+    programs: ["Nursing (BSN)", "Medical Assisting", "Occupational Therapy Assistant", "Business"],
+    highlights: [
+      "Hands-on nursing & allied-health labs",
+      "Southern Broward County location",
+      "Strong clinical-placement network",
+    ],
+    skyline: [0.6, 0.55, 0.7, 0.5, 0.6, 0.5],
+  },
+  {
     id: "orlando",
     name: "Orlando Campus",
     city: "Orlando, FL",

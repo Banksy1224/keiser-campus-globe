@@ -30,8 +30,9 @@ automatically as the hero image in that campus's info panel.
 | `vietnam.jpg`          | Keiser University Vietnam        |
 | `online.jpg`           | Keiser University Online         |
 
-Provided so far: **Tampa** (`tampa.webp`), **Miami** (`miami.jpg`), and
-**West Palm Beach – Jog Road** (`west-palm-beach.jpg` + `west-palm-beach-2.png`).
+Provided so far: **Tampa** (`tampa.webp`), **Miami** (`miami.jpg`),
+**West Palm Beach – Jog Road** (`west-palm-beach.jpg` + `west-palm-beach-2.png`),
+and **Pembroke Pines** (`pembroke-pines.jpg`).
 
 A campus may carry a second photo via the `photoAlt` field — the panel hero
 shows the primary, the 3D campus-scene billboard shows the alternate.
