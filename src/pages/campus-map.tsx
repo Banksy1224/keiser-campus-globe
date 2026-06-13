@@ -618,6 +618,7 @@ export default function CampusMap() {
   const [inTour, setInTour] = useState(false); // inside a 3D campus scene
   const [tourPlaying, setTourPlaying] = useState(false); // guided auto-tour
   const [narrate, setNarrate] = useState(speechSupported()); // spoken tour guide
+  const [listOpen, setListOpen] = useState(false); // mobile campus-list drawer
   const controlsRef = useRef<OrbitControlsImpl | null>(null);
 
   const visibleCampuses = useMemo(
@@ -644,6 +645,7 @@ export default function CampusMap() {
   // fight for control of the camera.
   function handleManualSelect(campus: Campus) {
     setTourPlaying(false);
+    setListOpen(false); // close the mobile drawer after picking
     handleSelect(campus);
   }
 
@@ -773,25 +775,33 @@ export default function CampusMap() {
       )}
 
       {/* ---- Top bar ---- */}
-      <header className="pointer-events-none absolute inset-x-0 top-0 flex items-start justify-between p-4 sm:p-6">
-        <div className="pointer-events-auto">
-          <div className="flex items-center gap-2">
-            <img src={`${import.meta.env.BASE_URL}globe.svg`} alt="" className="h-7 w-7" />
-            <h1 className="font-display text-xl font-bold uppercase tracking-wide text-keiser-gold sm:text-2xl">
-              Keiser University · Campus Ecosystem
-            </h1>
-          </div>
-          <p className="mt-1 max-w-md text-xs text-slate-300/80 sm:text-sm">{subtitle}</p>
+      <header className="pointer-events-none absolute inset-x-0 top-0 flex items-start justify-between gap-2 p-3 sm:p-6">
+        <div className="pointer-events-auto min-w-0">
+          <BrandLogo />
+          <p className="mt-1 hidden max-w-md text-xs text-slate-300/80 sm:block sm:text-sm">
+            {subtitle}
+          </p>
         </div>
 
-        <div className="pointer-events-auto flex items-center gap-2">
+        <div className="pointer-events-auto flex shrink-0 items-center gap-1.5 sm:gap-2">
+          {/* Campuses drawer toggle (mobile only) */}
+          {!inTour && (
+            <button
+              onClick={() => setListOpen((v) => !v)}
+              aria-label="Browse campuses"
+              className="flex items-center rounded-full border border-keiser-gold/40 bg-keiser-navy/70 p-2 text-keiser-gold backdrop-blur transition hover:bg-keiser-gold/15 sm:hidden"
+            >
+              <ListIcon />
+            </button>
+          )}
+
           {/* Narration toggle (spoken tour guide) */}
           {speechSupported() && (
             <button
               onClick={toggleNarration}
               aria-pressed={narrate}
               title={narrate ? "Narration on" : "Narration off"}
-              className={`flex items-center gap-2 rounded-full border px-3 py-2 text-sm font-semibold backdrop-blur transition ${
+              className={`flex items-center gap-2 rounded-full border p-2 text-sm font-semibold backdrop-blur transition sm:px-3 ${
                 narrate
                   ? "border-keiser-gold/60 bg-keiser-gold/15 text-keiser-gold"
                   : "border-white/20 bg-keiser-navy/70 text-slate-300 hover:bg-white/10"
@@ -805,17 +815,28 @@ export default function CampusMap() {
           {/* Guided-tour toggle */}
           <button
             onClick={tourPlaying ? stopTour : startTour}
-            className="flex items-center gap-2 rounded-full border border-keiser-gold/40 bg-keiser-navy/70 px-4 py-2 text-sm font-semibold text-keiser-gold backdrop-blur transition hover:bg-keiser-gold/15"
+            className="flex items-center gap-2 rounded-full border border-keiser-gold/40 bg-keiser-navy/70 p-2 text-sm font-semibold text-keiser-gold backdrop-blur transition hover:bg-keiser-gold/15 sm:px-4"
           >
             {tourPlaying ? <PauseIcon /> : <PlayIcon />}
-            {tourPlaying ? "Pause tour" : "Guided tour"}
+            <span className="hidden sm:inline">{tourPlaying ? "Pause tour" : "Guided tour"}</span>
           </button>
         </div>
       </header>
 
-      {/* ---- Region filter + campus list (left rail) ---- */}
+      {/* ---- Region filter + campus list (left rail; drawer on mobile) ---- */}
+      {!inTour && listOpen && (
+        <button
+          aria-label="Close campus list"
+          onClick={() => setListOpen(false)}
+          className="absolute inset-0 z-20 bg-black/50 sm:hidden"
+        />
+      )}
       {!inTour && (
-        <aside className="absolute left-4 top-24 bottom-28 hidden w-64 flex-col gap-3 sm:flex sm:left-6">
+        <aside
+          className={`absolute bottom-24 left-3 top-20 z-30 w-64 flex-col gap-3 sm:bottom-28 sm:left-6 sm:top-24 sm:flex ${
+            listOpen ? "flex" : "hidden"
+          }`}
+        >
           <div className="flex flex-wrap gap-1.5">
             {(["All", ...REGIONS] as const).map((r) => (
               <button
@@ -1059,6 +1080,26 @@ function CampusHero({ campus, onClose }: { campus: Campus; onClose: () => void }
   );
 }
 
+// ---- Brand wordmark: real logo when present, styled text fallback ----------
+function BrandLogo() {
+  const [ok, setOk] = useState(true);
+  return ok ? (
+    <img
+      src={asset("brand/wordmark-white.svg")}
+      onError={() => setOk(false)}
+      alt="Keiser University"
+      className="h-7 w-auto drop-shadow sm:h-10"
+    />
+  ) : (
+    <div className="flex items-center gap-2">
+      <img src={asset("globe.svg")} alt="" className="h-6 w-6 sm:h-7 sm:w-7" />
+      <span className="font-display text-base font-bold uppercase tracking-wide text-keiser-gold sm:text-2xl">
+        Keiser University
+      </span>
+    </div>
+  );
+}
+
 // ---- Small presentational helpers -----------------------------------------
 function Fact({ label, value }: { label: string; value: string }) {
   return (
@@ -1076,6 +1117,13 @@ function PlayIcon() {
   return (
     <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
       <path d="M8 5v14l11-7z" />
+    </svg>
+  );
+}
+function ListIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+      <path d="M4 6h16M4 12h16M4 18h16" />
     </svg>
   );
 }
