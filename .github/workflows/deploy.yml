@@ -36,6 +36,12 @@ jobs:
 
       - name: Build
         run: npm run build
+        env:
+          # Optional: enables the Google Photorealistic 3D campus tour.
+          # Add a repo secret named VITE_GOOGLE_MAPS_API_KEY (Map Tiles API,
+          # HTTP-referrer restricted). Without it, the app falls back to the
+          # stylized 3D campus scene.
+          VITE_GOOGLE_MAPS_API_KEY: ${{ secrets.VITE_GOOGLE_MAPS_API_KEY }}
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3

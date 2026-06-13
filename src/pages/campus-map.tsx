@@ -1,6 +1,14 @@
-import { Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, lazy, useEffect, useMemo, useRef, useState } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { Html, OrbitControls, Stars, useTexture } from "@react-three/drei";
+
+// Real Google Photorealistic 3D tiles overlay — lazy so the 3d-tiles library
+// only downloads when a campus tour is opened (and only when a key is set).
+const CampusTilesOverlay = lazy(() => import("./campus-tiles"));
+// A Google Maps key (Map Tiles API) enables the photoreal 3D campus tour;
+// without it we fall back to the stylized 3D scene. Kept local so the heavy
+// tiles module stays out of the main chunk.
+const TILES_ENABLED = Boolean(import.meta.env.VITE_GOOGLE_MAPS_API_KEY);
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 import * as THREE from "three";
 import {
@@ -22,6 +30,28 @@ const asset = (path: string) => `${import.meta.env.BASE_URL}${path}`;
  *  Always base-aware so it works on the Pages sub-path. */
 const campusPhotoSrc = (campus: Campus, alt = false) =>
   asset((alt ? campus.photoAlt : undefined) ?? campus.photo ?? `campuses/${campus.id}.jpg`);
+
+/** Base-aware flag image URL for a campus, derived from its city's country
+ *  (US for Florida/US campuses, a globe for the online/global node). */
+function flagSrc(campus: Campus): string {
+  const city = campus.city.toLowerCase();
+  const byCountry: Array<[string, string]> = [
+    ["nicaragua", "ni"],
+    ["bolivia", "bo"],
+    ["ecuador", "ec"],
+    ["peru", "pe"],
+    ["el salvador", "sv"],
+    ["spain", "es"],
+    ["india", "in"],
+    ["indonesia", "id"],
+    ["sri lanka", "lk"],
+    ["vietnam", "vn"],
+    ["china", "cn"],
+  ];
+  for (const [name, cc] of byCountry) if (city.includes(name)) return asset(`flags/${cc}.svg`);
+  if (campus.region === "Online & Global" && city.includes("anywhere")) return asset("globe.svg");
+  return asset("flags/us.svg"); // Florida + US campuses
+}
 
 /** Load a texture without suspending; resolves to null if the file is absent. */
 function useOptionalTexture(url: string): THREE.Texture | null {
@@ -169,6 +199,7 @@ function CampusPins({
   campuses,
   selectedId,
   hoveredId,
+  showCity,
   onHover,
   onSelect,
   globeRef,
@@ -176,6 +207,7 @@ function CampusPins({
   campuses: Campus[];
   selectedId: string | null;
   hoveredId: string | null;
+  showCity: boolean;
   onHover: (id: string | null) => void;
   onSelect: (campus: Campus) => void;
   globeRef: React.MutableRefObject<THREE.Mesh | null>;
@@ -183,52 +215,50 @@ function CampusPins({
   return (
     <group>
       {campuses.map((campus) => {
-        const pos = latLngToVec3(campus.lat, campus.lng, GLOBE_RADIUS * 1.012);
+        const pos = latLngToVec3(campus.lat, campus.lng, GLOBE_RADIUS * 1.02);
         const active = selectedId === campus.id || hoveredId === campus.id;
+        // City names appear when zoomed in or when this marker is active.
+        const withLabel = active || showCity;
         return (
           <group key={campus.id} position={pos}>
-            <mesh
-              onPointerOver={(e) => {
-                e.stopPropagation();
-                onHover(campus.id);
-                document.body.style.cursor = "pointer";
-              }}
-              onPointerOut={() => {
-                onHover(null);
-                document.body.style.cursor = "auto";
-              }}
-              onClick={(e) => {
-                e.stopPropagation();
-                onSelect(campus);
-              }}
-              scale={active ? 1.7 : 1}
+            {/* Precise location anchor dot on the surface. */}
+            <mesh scale={active ? 1.6 : 1}>
+              <sphereGeometry args={[0.016, 10, 10]} />
+              <meshBasicMaterial color={active ? FLAME_GOLD : "#ffffff"} />
+            </mesh>
+            {/* Flag marker; reveals the city/name as you zoom in. */}
+            <Html
+              position={[0, 0.05, 0]}
+              center
+              distanceFactor={9}
+              occlude={globeRef.current ? [globeRef] : undefined}
+              zIndexRange={[30, 0]}
             >
-              <sphereGeometry args={[0.035, 16, 16]} />
-              <meshBasicMaterial color={campus.flagship ? "#fff4d6" : FLAME_GOLD} />
-            </mesh>
-            {/* Glow halo */}
-            <mesh scale={active ? 2.6 : 1.8}>
-              <sphereGeometry args={[0.035, 12, 12]} />
-              <meshBasicMaterial
-                color={FLAME_GOLD}
-                transparent
-                opacity={active ? 0.35 : 0.18}
-                blending={THREE.AdditiveBlending}
-              />
-            </mesh>
-            {active && (
-              <Html
-                position={[0, 0.12, 0]}
-                center
-                distanceFactor={8}
-                occlude={globeRef.current ? [globeRef] : undefined}
-                style={{ pointerEvents: "none" }}
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onSelect(campus);
+                }}
+                onPointerOver={() => onHover(campus.id)}
+                onPointerOut={() => onHover(null)}
+                className={`flex -translate-y-1 cursor-pointer items-center gap-1 whitespace-nowrap rounded-full border px-1 py-0.5 shadow-lg transition ${
+                  active
+                    ? "z-10 scale-110 border-keiser-gold bg-keiser-gold text-keiser-navy"
+                    : "border-white/25 bg-keiser-navy/85 text-white hover:border-keiser-gold/70 hover:bg-keiser-navy"
+                }`}
               >
-                <div className="whitespace-nowrap rounded-md border border-keiser-gold/40 bg-keiser-navy/90 px-2 py-1 text-[11px] font-semibold text-keiser-gold shadow-lg backdrop-blur">
-                  {campus.name}
-                </div>
-              </Html>
-            )}
+                <img
+                  src={flagSrc(campus)}
+                  alt=""
+                  className="h-3 w-[1.05rem] shrink-0 rounded-[1px] object-cover ring-1 ring-black/20"
+                />
+                {withLabel && (
+                  <span className="px-0.5 font-display text-[10px] font-semibold uppercase tracking-wide">
+                    {active ? campus.name : campus.city.split(",")[0]}
+                  </span>
+                )}
+              </button>
+            </Html>
           </group>
         );
       })}
@@ -539,12 +569,18 @@ function GlobeScene({
 }) {
   const globeRef = useRef<THREE.Mesh | null>(null);
   const groupRef = useRef<THREE.Group>(null);
+  const { camera } = useThree();
+  // Reveal city labels once the camera dollies in past this distance.
+  const [zoomedIn, setZoomedIn] = useState(false);
 
-  // Idle auto-rotation when nothing is selected (the "drone hover" feel).
   useFrame((_, delta) => {
+    // Idle auto-rotation when nothing is selected (the "drone hover" feel).
     if (!selectedId && groupRef.current) {
       groupRef.current.rotation.y += delta * 0.04;
     }
+    // Toggle city labels on zoom (only set state when the threshold is crossed).
+    const near = camera.position.length() < 5;
+    if (near !== zoomedIn) setZoomedIn(near);
   });
 
   return (
@@ -561,6 +597,7 @@ function GlobeScene({
           campuses={campuses}
           selectedId={selectedId}
           hoveredId={hoveredId}
+          showCity={zoomedIn}
           onHover={onHover}
           onSelect={onSelect}
           globeRef={globeRef}
@@ -693,7 +730,7 @@ export default function CampusMap() {
         dpr={[1, 2]}
       >
         <color attach="background" args={["#0b1c33"]} />
-        {inTour && selected ? (
+        {inTour && selected && !TILES_ENABLED ? (
           <>
             <Stars radius={80} depth={40} count={1500} factor={3} fade speed={0.4} />
             <CampusScene campus={selected} />
@@ -727,6 +764,13 @@ export default function CampusMap() {
           </Suspense>
         )}
       </Canvas>
+
+      {/* ---- Real Google Photorealistic 3D tiles (overlay during a tour) ---- */}
+      {inTour && selected && TILES_ENABLED && (
+        <Suspense fallback={null}>
+          <CampusTilesOverlay campus={selected} />
+        </Suspense>
+      )}
 
       {/* ---- Top bar ---- */}
       <header className="pointer-events-none absolute inset-x-0 top-0 flex items-start justify-between p-4 sm:p-6">
