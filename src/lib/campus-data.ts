@@ -451,6 +451,7 @@ export const CAMPUSES: Campus[] = [
     region: "Latin America",
     lat: -2.1962,
     lng: -79.8862,
+    photo: "campuses/ista-ecuador.png",
     tagline: "American technical education in Ecuador.",
     description:
       "A Keiser University global partner, the Instituto Superior Técnico Americano brings career-focused, American-style technical and professional programs to Ecuador, with academic ties back to Keiser's U.S. campuses.",
