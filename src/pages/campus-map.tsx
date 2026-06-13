@@ -17,6 +17,11 @@ import { speak, speechSupported, stopSpeaking } from "../lib/narration";
 // Base-aware asset URL (works under the GitHub Pages project sub-path).
 const asset = (path: string) => `${import.meta.env.BASE_URL}${path}`;
 
+/** Resolve a campus's photo URL: explicit `photo`, else the `<id>.jpg`
+ *  convention. Always base-aware so it works on the Pages sub-path. */
+const campusPhotoSrc = (campus: Campus) =>
+  asset(campus.photo ?? `campuses/${campus.id}.jpg`);
+
 /** Load a texture without suspending; resolves to null if the file is absent. */
 function useOptionalTexture(url: string): THREE.Texture | null {
   const [tex, setTex] = useState<THREE.Texture | null>(null);
@@ -422,7 +427,7 @@ function CampusScene({ campus }: { campus: Campus }) {
   });
 
   // Real campus photo, shown on a billboard "sign" when one is present.
-  const photo = useOptionalTexture(asset(`campuses/${campus.id}.jpg`));
+  const photo = useOptionalTexture(campusPhotoSrc(campus));
 
   return (
     <group>
@@ -932,7 +937,7 @@ function CampusHero({ campus, onClose }: { campus: Campus; onClose: () => void }
   // Resolve an explicit photo URL, else a conventional drop-in path. If the
   // file is missing (or fails to load) we fall back to the brand gradient, so
   // the panel always looks intentional whether or not photos are present.
-  const src = campus.photo ?? `${import.meta.env.BASE_URL}campuses/${campus.id}.jpg`;
+  const src = campusPhotoSrc(campus);
   const [hasPhoto, setHasPhoto] = useState(true);
 
   return (

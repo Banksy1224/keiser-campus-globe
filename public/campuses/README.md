@@ -30,10 +30,13 @@ automatically as the hero image in that campus's info panel.
 | `vietnam.jpg`          | Keiser University Vietnam        |
 | `online.jpg`           | Keiser University Online         |
 
+Provided so far: **Tampa** (`tampa.webp`) and **Miami** (`miami.jpg`).
+
 Notes:
-- Any web-image format works if you match the extension the data expects
-  (`.jpg` by default). To use a different name or a remote URL, set the
-  `photo` field on that campus in `src/lib/campus-data.ts`.
+- Default convention is `<id>.jpg`. For any other format/name (e.g. `.webp`,
+  `.png`) or a remote URL, set the `photo` field on that campus in
+  `src/lib/campus-data.ts` (e.g. Tampa uses `photo: "campuses/tampa.webp"`).
+  Paths are resolved base-aware, so they work on the GitHub Pages sub-path.
 - Landscape images around **1200×800** look best; they're cropped to fill.
 - If a file is missing, the panel falls back to the brand gradient — nothing
   breaks.

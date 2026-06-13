@@ -101,6 +101,7 @@ export const CAMPUSES: Campus[] = [
     region: "Florida",
     lat: 27.9506,
     lng: -82.4572,
+    photo: "campuses/tampa.webp",
     tagline: "Gulf Coast healthcare & business.",
     description:
       "The Tampa campus serves the Gulf Coast with strong nursing, imaging, and business pathways, plus easy access to one of Florida's largest hospital networks for clinical placements.",
