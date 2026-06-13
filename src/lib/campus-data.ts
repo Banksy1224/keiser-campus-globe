@@ -392,6 +392,7 @@ export const CAMPUSES: Campus[] = [
     region: "Latin America",
     lat: 12.0833,
     lng: -86.2,
+    virtualTour: "https://youtu.be/KTpKJbvUy0k?is=O60UzSAqANQLwrLJ",
     tagline: "An American degree in Central America.",
     description:
       "Keiser's residential Latin American Campus brings a U.S.-style, English-language university experience to Nicaragua — drawing students from across the region to a 14-acre campus with dorms, athletics, and study-abroad ties back to Florida.",
