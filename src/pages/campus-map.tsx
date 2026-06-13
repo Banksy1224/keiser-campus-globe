@@ -936,20 +936,35 @@ export default function CampusMap() {
 
 // ---- Campus panel hero: real photo when available, gradient fallback -------
 function CampusHero({ campus, onClose }: { campus: Campus; onClose: () => void }) {
-  // Resolve an explicit photo URL, else a conventional drop-in path. If the
-  // file is missing (or fails to load) we fall back to the brand gradient, so
-  // the panel always looks intentional whether or not photos are present.
-  const src = campusPhotoSrc(campus);
+  // The hero shows the primary photo (explicit `photo` or the `<id>.jpg`
+  // convention) plus any `gallery` images, auto-rotating between them. If
+  // images are missing it falls back to the brand gradient, so the panel
+  // always looks intentional. (Parent keys this by campus id, so state resets
+  // per campus.)
+  const images = useMemo(
+    () => [campusPhotoSrc(campus), ...(campus.gallery ?? []).map((g) => asset(g))],
+    [campus],
+  );
+  const [idx, setIdx] = useState(0);
   const [hasPhoto, setHasPhoto] = useState(true);
+
+  useEffect(() => {
+    if (images.length < 2) return;
+    const handle = window.setInterval(() => setIdx((i) => (i + 1) % images.length), 4500);
+    return () => window.clearInterval(handle);
+  }, [images]);
+
+  const src = images[idx];
 
   return (
     <div className="relative min-h-[8.5rem] overflow-hidden bg-gradient-to-br from-keiser-blue to-keiser-navy p-5">
       {hasPhoto && (
         <img
+          key={src}
           src={src}
           alt={`${campus.name} campus`}
-          onError={() => setHasPhoto(false)}
-          className="absolute inset-0 h-full w-full object-cover"
+          onError={() => idx === 0 && setHasPhoto(false)}
+          className="absolute inset-0 h-full w-full animate-fade-in object-cover"
         />
       )}
       {/* Dark overlay keeps text legible over any photo. */}
@@ -969,6 +984,20 @@ function CampusHero({ campus, onClose }: { campus: Campus; onClose: () => void }
         <h2 className="mt-1 text-xl font-extrabold text-white drop-shadow">{campus.name}</h2>
         <p className="text-sm text-slate-200 drop-shadow">{campus.city}</p>
         <p className="mt-2 text-sm italic text-keiser-gold drop-shadow">“{campus.tagline}”</p>
+
+        {/* Gallery dots */}
+        {hasPhoto && images.length > 1 && (
+          <div className="mt-3 flex gap-1.5">
+            {images.map((_, i) => (
+              <span
+                key={i}
+                className={`h-1.5 rounded-full transition-all ${
+                  i === idx ? "w-4 bg-keiser-gold" : "w-1.5 bg-white/40"
+                }`}
+              />
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

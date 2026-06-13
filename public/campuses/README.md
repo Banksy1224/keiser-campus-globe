@@ -30,12 +30,17 @@ automatically as the hero image in that campus's info panel.
 | `vietnam.jpg`          | Keiser University Vietnam        |
 | `online.jpg`           | Keiser University Online         |
 
-Provided so far: **Tampa** (`tampa.webp`), **Miami** (`miami.jpg`),
+Provided so far: **Flagship** (`flagship.jpg` + `flagship-2.jpg` gallery +
+`flagship-aerial.webp` billboard), **Tampa** (`tampa.webp`),
+**Miami** (`miami.jpg`),
 **West Palm Beach – Jog Road** (`west-palm-beach.jpg` + `west-palm-beach-2.png`),
 and **Pembroke Pines** (`pembroke-pines.jpg`).
 
-A campus may carry a second photo via the `photoAlt` field — the panel hero
-shows the primary, the 3D campus-scene billboard shows the alternate.
+Multiple photos per campus:
+- `photo` (or the default `<id>.jpg`) is the primary hero image.
+- `gallery: [...]` adds more hero images; the panel hero auto-rotates through them.
+- `photoAlt` is shown on the 3D campus-scene billboard.
+All paths are resolved base-aware, so they work on the GitHub Pages sub-path.
 
 Notes:
 - Default convention is `<id>.jpg`. For any other format/name (e.g. `.webp`,
