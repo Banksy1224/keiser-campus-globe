@@ -471,6 +471,7 @@ export const CAMPUSES: Campus[] = [
     region: "Latin America",
     lat: -12.0851,
     lng: -76.947,
+    photo: "campuses/usil-peru.png",
     tagline: "A global classroom in Lima.",
     description:
       "Hosted at the Universidad San Ignacio de Loyola, the Center for Global Education connects Peruvian students with Keiser University's international programs and study-abroad pathways, blending local and American academic traditions.",
