@@ -1,6 +1,14 @@
-import { Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, lazy, useEffect, useMemo, useRef, useState } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { Html, OrbitControls, Stars, useTexture } from "@react-three/drei";
+
+// Real Google Photorealistic 3D tiles overlay — lazy so the 3d-tiles library
+// only downloads when a campus tour is opened (and only when a key is set).
+const CampusTilesOverlay = lazy(() => import("./campus-tiles"));
+// A Google Maps key (Map Tiles API) enables the photoreal 3D campus tour;
+// without it we fall back to the stylized 3D scene. Kept local so the heavy
+// tiles module stays out of the main chunk.
+const TILES_ENABLED = Boolean(import.meta.env.VITE_GOOGLE_MAPS_API_KEY);
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 import * as THREE from "three";
 import {
@@ -722,7 +730,7 @@ export default function CampusMap() {
         dpr={[1, 2]}
       >
         <color attach="background" args={["#0b1c33"]} />
-        {inTour && selected ? (
+        {inTour && selected && !TILES_ENABLED ? (
           <>
             <Stars radius={80} depth={40} count={1500} factor={3} fade speed={0.4} />
             <CampusScene campus={selected} />
@@ -756,6 +764,13 @@ export default function CampusMap() {
           </Suspense>
         )}
       </Canvas>
+
+      {/* ---- Real Google Photorealistic 3D tiles (overlay during a tour) ---- */}
+      {inTour && selected && TILES_ENABLED && (
+        <Suspense fallback={null}>
+          <CampusTilesOverlay campus={selected} />
+        </Suspense>
+      )}
 
       {/* ---- Top bar ---- */}
       <header className="pointer-events-none absolute inset-x-0 top-0 flex items-start justify-between p-4 sm:p-6">

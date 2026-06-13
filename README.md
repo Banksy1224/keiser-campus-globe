@@ -76,6 +76,28 @@ restrictions. The production base path is set to `/keiser-campus-globe/` in
 [`vite.config.ts`](vite.config.ts); override it with the `VITE_BASE` env var if
 you attach a custom domain.
 
+## Photoreal 3D campus tour (Google 3D Tiles)
+
+"Enter 3D campus tour" can render **real Google Photorealistic 3D Tiles** of a
+campus's actual location (photogrammetry buildings + terrain), via
+[`3d-tiles-renderer`](https://github.com/NASA-AMMOS/3DTilesRendererJS). It's
+**optional** and lazy-loaded — without a key, tours fall back to the stylized
+3D scene, and the tiles library never downloads.
+
+**Enable it:**
+1. In [Google Cloud Console](https://console.cloud.google.com/), enable the
+   **Map Tiles API** and create an API key.
+2. **Restrict the key by HTTP referrer** (e.g. `https://banksy1224.github.io/*`)
+   — it ships in the client bundle, so this is important.
+3. Provide the key as `VITE_GOOGLE_MAPS_API_KEY`:
+   - Local: copy `.env.example` → `.env.local` and paste the key.
+   - Deploy: add a **repo secret** named `VITE_GOOGLE_MAPS_API_KEY` (the deploy
+     workflow already passes it into the build).
+
+**Cost:** the Map Tiles API is usage-based (Google's pricing / free monthly
+credit). For a public admissions tool, keep the referrer restriction on and
+monitor usage in the Google Cloud console.
+
 ## Tuning knobs
 
 Most of the "feel" lives in constants at the top of
