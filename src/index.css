@@ -1,4 +1,4 @@
-@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Roboto:wght@400;500;700&display=swap");
 
 @tailwind base;
 @tailwind components;
@@ -16,9 +16,9 @@ body,
 }
 
 body {
-  background: #060c1c;
-  color: #e8eefc;
-  font-family: "Inter", system-ui, sans-serif;
+  background: #0b1c33;
+  color: #eef2f8;
+  font-family: "Roboto", system-ui, Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
   overflow: hidden;
 }
@@ -28,7 +28,7 @@ body {
   width: 6px;
 }
 .scroll-slim::-webkit-scrollbar-thumb {
-  background: rgba(200, 169, 81, 0.35);
+  background: rgba(232, 188, 88, 0.4);
   border-radius: 999px;
 }
 .scroll-slim::-webkit-scrollbar-track {
