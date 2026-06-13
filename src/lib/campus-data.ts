@@ -44,7 +44,7 @@ export interface Campus {
   skyline: number[];
 }
 
-export const FLAME_GOLD = "#e8b04b";
+export const FLAME_GOLD = "#E8BC58";
 
 export const CAMPUSES: Campus[] = [
   {

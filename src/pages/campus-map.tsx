@@ -692,7 +692,7 @@ export default function CampusMap() {
         gl={{ antialias: true }}
         dpr={[1, 2]}
       >
-        <color attach="background" args={["#060c1c"]} />
+        <color attach="background" args={["#0b1c33"]} />
         {inTour && selected ? (
           <>
             <Stars radius={80} depth={40} count={1500} factor={3} fade speed={0.4} />
@@ -733,7 +733,7 @@ export default function CampusMap() {
         <div className="pointer-events-auto">
           <div className="flex items-center gap-2">
             <img src={`${import.meta.env.BASE_URL}globe.svg`} alt="" className="h-7 w-7" />
-            <h1 className="text-lg font-extrabold tracking-tight text-keiser-gold sm:text-xl">
+            <h1 className="font-display text-xl font-bold uppercase tracking-wide text-keiser-gold sm:text-2xl">
               Keiser University · Campus Ecosystem
             </h1>
           </div>
@@ -991,7 +991,9 @@ function CampusHero({ campus, onClose }: { campus: Campus; onClose: () => void }
         <span className="text-[11px] font-semibold uppercase tracking-wider text-keiser-gold">
           {campus.region}
         </span>
-        <h2 className="mt-1 text-xl font-extrabold text-white drop-shadow">{campus.name}</h2>
+        <h2 className="mt-1 font-display text-2xl font-bold uppercase tracking-wide text-white drop-shadow">
+          {campus.name}
+        </h2>
         <p className="text-sm text-slate-200 drop-shadow">{campus.city}</p>
         <p className="mt-2 text-sm italic text-keiser-gold drop-shadow">“{campus.tagline}”</p>
 

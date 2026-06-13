@@ -4,16 +4,20 @@ export default {
   theme: {
     extend: {
       colors: {
-        // Keiser University palette
+        // Keiser University brand palette (per brand guidelines)
         keiser: {
-          navy: "#0a1733",
-          blue: "#13285a",
-          gold: "#c8a951",
-          flame: "#e8b04b",
+          navy: "#1A335A", // Primary — Keiser Dark Blue
+          blue: "#3175CB", // Secondary blue
+          gold: "#E8BC58", // Accent — Keiser Yellow
+          flame: "#E8BC58", // alias used by the 3D flame monument / accents
+          gray: "#BCBEC0", // neutral
+          light: "#F2F2F2", // neutral light
         },
       },
       fontFamily: {
-        sans: ["Inter", "system-ui", "Avenir", "Helvetica", "Arial", "sans-serif"],
+        // Body: Roboto (secondary font); Headings: Barlow Condensed (primary font)
+        sans: ["Roboto", "system-ui", "Arial", "sans-serif"],
+        display: ["'Barlow Condensed'", "Roboto", "system-ui", "sans-serif"],
       },
       keyframes: {
         "fade-in": {
