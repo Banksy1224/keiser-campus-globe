@@ -35,7 +35,7 @@ Provided so far: **Flagship** (`flagship.jpg` + `flagship-2.jpg` gallery +
 **Tampa** (`tampa.webp`), **Miami** (`miami.jpg`),
 **West Palm Beach – Jog Road** (`west-palm-beach.jpg` + `west-palm-beach-2.png`),
 **Pembroke Pines** (`pembroke-pines.jpg`), **Port St. Lucie**
-(`port-st-lucie.jpg`), **Melbourne** (`melbourne.jpg`), **New Port Richey** (`new-port-richey.jpg`), **Naples** (`naples.jpg`), **Orlando** (`orlando.jpg`), **Lakeland** (`lakeland.jpg`), **Clearwater** (`clearwater.png`), **Fort Myers** (`fort-myers.jpg`), **Jacksonville** (`jacksonville.jpg`), **Graduate School –
+(`port-st-lucie.jpg`), **Melbourne** (`melbourne.jpg`), **New Port Richey** (`new-port-richey.jpg`), **Naples** (`naples.jpg`), **Orlando** (`orlando.jpg`), **Lakeland** (`lakeland.jpg`), **Clearwater** (`clearwater.png`), **Fort Myers** (`fort-myers.jpg`), **Jacksonville** (`jacksonville.jpg`), **Tallahassee** (`tallahassee.png`), **Graduate School –
 Fort Lauderdale** (`graduate-school.jpg`), **eCampus – Online Undergraduate**
 (`e-campus.jpg`), **Latin American Campus – San Marcos, Nicaragua**
 (`latin-american.jpg`), and **Language Center – Managua, Nicaragua**

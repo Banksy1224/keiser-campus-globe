@@ -217,6 +217,7 @@ export const CAMPUSES: Campus[] = [
     region: "Florida",
     lat: 30.4383,
     lng: -84.2807,
+    photo: "campuses/tallahassee.png",
     tagline: "In the capital, close to policy.",
     description:
       "Minutes from the state capitol, the Tallahassee campus is a natural fit for students drawn to legal studies, public service, and healthcare in North Florida.",
