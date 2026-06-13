@@ -638,6 +638,27 @@ export const CAMPUSES: Campus[] = [
     skyline: [0.6, 0.7, 0.55, 0.65, 0.5, 0.6],
   },
   {
+    id: "china",
+    name: "Keiser University China",
+    city: "Shanghai, China",
+    region: "Global Campuses",
+    lat: 31.2304,
+    lng: 121.4737,
+    photo: "campuses/china.jpg",
+    tagline: "Keiser's presence in China.",
+    description:
+      "Keiser University's China program connects students in Shanghai to Keiser's American, English-language academic model and global network, with pathways toward study in the United States.",
+    established: "Keiser global campus",
+    setting: "International campus",
+    programs: ["International Business", "English Language", "Hospitality Management", "Information Technology"],
+    highlights: [
+      "American curriculum in China",
+      "Pathways to U.S. study",
+      "Part of Keiser's global network",
+    ],
+    skyline: [0.8, 0.7, 0.9, 0.6, 0.75, 0.55],
+  },
+  {
     id: "online",
     name: "Keiser University Online",
     city: "Anywhere, worldwide",
