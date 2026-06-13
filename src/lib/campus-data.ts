@@ -517,6 +517,8 @@ export const CAMPUSES: Campus[] = [
     region: "Global Campuses",
     lat: 19.0833,
     lng: 72.908,
+    photo: "campuses/garodia-india.jpg",
+    photoAlt: "campuses/garodia-india-2.png",
     tagline: "Keiser's partner in Mumbai.",
     description:
       "A Keiser University global partner in Mumbai, Garodia International College offers internationally aligned, career-focused programs that connect Indian students to Keiser's worldwide academic community and U.S. study options.",
