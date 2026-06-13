@@ -24,6 +24,12 @@ export interface Campus {
    * and otherwise falls back to the brand gradient. Can also be a full URL.
    */
   photo?: string;
+  /** Optional second photo, shown on the 3D campus-scene billboard. */
+  photoAlt?: string;
+  /** Optional extra hero photos; the panel hero auto-rotates through them. */
+  gallery?: string[];
+  /** Optional external 360°/virtual-tour URL (opens in a new tab). */
+  virtualTour?: string;
   tagline: string;
   description: string;
   established: string;
@@ -49,6 +55,9 @@ export const CAMPUSES: Campus[] = [
     lat: 26.7153,
     lng: -80.0534,
     flagship: true,
+    photoAlt: "campuses/flagship-aerial.webp",
+    gallery: ["campuses/flagship-2.jpg"],
+    virtualTour: "https://www.youvisit.com/tour/keiseruniversity/keiseruniversity?tourid=tour2",
     tagline: "The heart of the Keiser ecosystem.",
     description:
       "Set on 100 wooded acres, the Flagship is Keiser's only traditional residential campus — dorms, a dining commons, NAIA athletics, and a student center built for the full college experience. It anchors the entire network you see arcing across the globe.",
@@ -61,6 +70,27 @@ export const CAMPUSES: Campus[] = [
       "Lakeside trails and a true college quad",
     ],
     skyline: [0.9, 0.6, 1.0, 0.7, 0.5, 0.8, 0.65, 0.55],
+  },
+  {
+    id: "west-palm-beach",
+    name: "West Palm Beach Campus (Jog Road)",
+    city: "West Palm Beach, FL",
+    region: "Florida",
+    lat: 26.7065,
+    lng: -80.13,
+    photoAlt: "campuses/west-palm-beach-2.png",
+    tagline: "Career programs on Jog Road.",
+    description:
+      "On Jog Road in West Palm Beach, this campus serves working professionals across South Florida with career-focused degree programs — distinct from the nearby residential Flagship.",
+    established: "West Palm Beach campus",
+    setting: "Professional campus",
+    programs: ["Business Administration", "Nursing (BSN)", "Psychology", "Health Services Admin"],
+    highlights: [
+      "On Jog Road, distinct from the Flagship",
+      "Built for working professionals",
+      "Career-focused degree programs",
+    ],
+    skyline: [0.7, 0.6, 0.85, 0.55, 0.7, 0.6, 0.5],
   },
   {
     id: "fort-lauderdale",
@@ -77,6 +107,46 @@ export const CAMPUSES: Campus[] = [
     programs: ["Nursing (BSN)", "Radiologic Technology", "Diagnostic Medical Sonography", "Health Services Admin"],
     highlights: ["Founding Keiser campus", "Simulation hospital labs", "Steps from major medical centers"],
     skyline: [0.7, 0.5, 0.8, 0.55, 0.6, 0.45],
+  },
+  {
+    id: "pembroke-pines",
+    name: "Pembroke Pines Campus",
+    city: "Pembroke Pines, FL",
+    region: "Florida",
+    lat: 26.0078,
+    lng: -80.2963,
+    tagline: "Healthcare careers in southern Broward.",
+    description:
+      "The Pembroke Pines campus serves the fast-growing communities of southern Broward County with hands-on nursing and allied-health programs and easy access to South Florida's hospital network for clinical placements.",
+    established: "Broward County campus",
+    setting: "Suburban health-sciences campus",
+    programs: ["Nursing (BSN)", "Medical Assisting", "Occupational Therapy Assistant", "Business"],
+    highlights: [
+      "Hands-on nursing & allied-health labs",
+      "Southern Broward County location",
+      "Strong clinical-placement network",
+    ],
+    skyline: [0.6, 0.55, 0.7, 0.5, 0.6, 0.5],
+  },
+  {
+    id: "graduate-school",
+    name: "Keiser University Graduate School",
+    city: "Fort Lauderdale, FL",
+    region: "Florida",
+    lat: 26.1929,
+    lng: -80.17,
+    tagline: "Advanced degrees, real-world focus.",
+    description:
+      "Keiser University's Graduate School delivers master's and doctoral programs built for working professionals — across business, education, psychology, and the health sciences — with the same hands-on, student-first approach as the university's undergraduate campuses.",
+    established: "Graduate School",
+    setting: "Graduate & doctoral campus",
+    programs: ["MBA / DBA", "Education (Ed.D.)", "Psychology (MS / Psy.D.)", "Health Sciences"],
+    highlights: [
+      "Master's & doctoral programs",
+      "Built for working professionals",
+      "Fort Lauderdale location",
+    ],
+    skyline: [0.7, 0.6, 0.85, 0.55, 0.7, 0.6],
   },
   {
     id: "orlando",
@@ -101,6 +171,7 @@ export const CAMPUSES: Campus[] = [
     region: "Florida",
     lat: 27.9506,
     lng: -82.4572,
+    photo: "campuses/tampa.webp",
     tagline: "Gulf Coast healthcare & business.",
     description:
       "The Tampa campus serves the Gulf Coast with strong nursing, imaging, and business pathways, plus easy access to one of Florida's largest hospital networks for clinical placements.",
@@ -149,6 +220,7 @@ export const CAMPUSES: Campus[] = [
     region: "Florida",
     lat: 30.4383,
     lng: -84.2807,
+    photo: "campuses/tallahassee.png",
     tagline: "In the capital, close to policy.",
     description:
       "Minutes from the state capitol, the Tallahassee campus is a natural fit for students drawn to legal studies, public service, and healthcare in North Florida.",
@@ -181,6 +253,7 @@ export const CAMPUSES: Campus[] = [
     region: "Florida",
     lat: 29.2108,
     lng: -81.0228,
+    photo: "campuses/daytona.webp",
     tagline: "Career-ready by the coast.",
     description:
       "The Daytona Beach campus blends healthcare and business programs with a relaxed coastal setting, serving students across Volusia County and beyond.",
@@ -271,12 +344,55 @@ export const CAMPUSES: Campus[] = [
     skyline: [0.5, 0.5, 0.55, 0.45, 0.5],
   },
   {
+    id: "clearwater",
+    name: "Clearwater Campus",
+    city: "Clearwater, FL",
+    region: "Florida",
+    lat: 27.9659,
+    lng: -82.8001,
+    photo: "campuses/clearwater.png",
+    tagline: "Pinellas County, Gulf Coast.",
+    description:
+      "The Clearwater campus brings Keiser's career-focused health-science and business programs to Pinellas County, with hands-on labs and clinical connections across the Tampa Bay area.",
+    established: "Pinellas County campus",
+    setting: "Suburban Gulf Coast campus",
+    programs: ["Nursing (BSN)", "Medical Assisting", "Business", "Health Services Admin"],
+    highlights: [
+      "Pinellas County / Tampa Bay location",
+      "Hands-on health-science labs",
+      "Career-focused scheduling",
+    ],
+    skyline: [0.55, 0.6, 0.5, 0.6, 0.5],
+  },
+  {
+    id: "fort-myers",
+    name: "Fort Myers Campus",
+    city: "Fort Myers, FL",
+    region: "Florida",
+    lat: 26.6406,
+    lng: -81.8723,
+    photo: "campuses/fort-myers.jpg",
+    tagline: "Southwest Florida careers.",
+    description:
+      "The Fort Myers campus serves Southwest Florida with career-focused nursing, allied-health, and business programs, plus clinical connections across the growing Lee County region.",
+    established: "Lee County campus",
+    setting: "Suburban Southwest Florida campus",
+    programs: ["Nursing (BSN)", "Medical Assisting", "Business", "Criminal Justice"],
+    highlights: [
+      "Southwest Florida / Lee County location",
+      "Hands-on health-science labs",
+      "Strong clinical-placement network",
+    ],
+    skyline: [0.6, 0.55, 0.7, 0.5, 0.6, 0.5],
+  },
+  {
     id: "latin-american",
     name: "Latin American Campus",
     city: "San Marcos, Nicaragua",
     region: "Latin America",
     lat: 12.0833,
     lng: -86.2,
+    virtualTour: "https://youtu.be/KTpKJbvUy0k?is=O60UzSAqANQLwrLJ",
     tagline: "An American degree in Central America.",
     description:
       "Keiser's residential Latin American Campus brings a U.S.-style, English-language university experience to Nicaragua — drawing students from across the region to a 14-acre campus with dorms, athletics, and study-abroad ties back to Florida.",
@@ -290,6 +406,48 @@ export const CAMPUSES: Campus[] = [
     ],
     skyline: [0.75, 0.6, 0.85, 0.55, 0.7, 0.5],
   },
+  {
+    id: "managua-language-center",
+    name: "Language Center — Managua",
+    city: "Managua, Nicaragua",
+    region: "Latin America",
+    lat: 12.115,
+    lng: -86.2362,
+    photo: "campuses/managua-language-center.png",
+    tagline: "English-language gateway in the capital.",
+    description:
+      "Keiser's Language Center in Managua helps students across Nicaragua build the English fluency they need for an American-style education, feeding into the residential Latin American Campus and the wider Keiser network.",
+    established: "Managua language center",
+    setting: "Language & pathway center",
+    programs: ["English Language", "Academic Preparation", "Pathway to Degree Programs"],
+    highlights: [
+      "English-language preparation",
+      "Located in the capital, Managua",
+      "Pathway to the Latin American Campus",
+    ],
+    skyline: [0.5, 0.6, 0.55, 0.5, 0.45],
+  },
+  {
+    id: "el-salvador",
+    name: "Keiser University El Salvador",
+    city: "San Salvador, El Salvador",
+    region: "Latin America",
+    lat: 13.6929,
+    lng: -89.2182,
+    photo: "campuses/el-salvador.jpg",
+    tagline: "An American university in San Salvador.",
+    description:
+      "Keiser University El Salvador brings the American, English-language model to the heart of San Salvador, offering Salvadoran students international degree programs and pathways into the wider Keiser network.",
+    established: "Keiser global campus",
+    setting: "International urban campus",
+    programs: ["International Business", "English Language", "Information Technology", "Hospitality Management"],
+    highlights: [
+      "American curriculum in El Salvador",
+      "Located in San Salvador",
+      "Pathways across the Keiser network",
+    ],
+    skyline: [0.85, 0.7, 0.95, 0.6, 0.8, 0.55],
+  },
 
   // ---- Latin American global network partners --------------------------
   {
@@ -299,6 +457,7 @@ export const CAMPUSES: Campus[] = [
     region: "Latin America",
     lat: -17.7833,
     lng: -63.1821,
+    photo: "campuses/santa-cruz.png",
     tagline: "Keiser's gateway to Bolivia.",
     description:
       "Part of Keiser University's global network, the International University of Santa Cruz extends an American-style higher-education experience to Bolivia's largest and fastest-growing city, connecting Bolivian students to Keiser's worldwide academic community.",
@@ -319,6 +478,7 @@ export const CAMPUSES: Campus[] = [
     region: "Latin America",
     lat: -2.1962,
     lng: -79.8862,
+    photo: "campuses/ista-ecuador.png",
     tagline: "American technical education in Ecuador.",
     description:
       "A Keiser University global partner, the Instituto Superior Técnico Americano brings career-focused, American-style technical and professional programs to Ecuador, with academic ties back to Keiser's U.S. campuses.",
@@ -339,6 +499,7 @@ export const CAMPUSES: Campus[] = [
     region: "Latin America",
     lat: -12.0851,
     lng: -76.947,
+    photo: "campuses/usil-peru.png",
     tagline: "A global classroom in Lima.",
     description:
       "Hosted at the Universidad San Ignacio de Loyola, the Center for Global Education connects Peruvian students with Keiser University's international programs and study-abroad pathways, blending local and American academic traditions.",
@@ -361,6 +522,7 @@ export const CAMPUSES: Campus[] = [
     region: "Global Campuses",
     lat: 36.5101,
     lng: -4.8856,
+    photo: "campuses/spain.png",
     tagline: "An American degree on the Costa del Sol.",
     description:
       "Part of Keiser University's global network, the American College in Spain offers a U.S.-style, English-language university experience on Spain's Mediterranean coast — a launchpad for students who want an international education with a European setting.",
@@ -381,6 +543,8 @@ export const CAMPUSES: Campus[] = [
     region: "Global Campuses",
     lat: 19.0833,
     lng: 72.908,
+    photo: "campuses/garodia-india.jpg",
+    photoAlt: "campuses/garodia-india-2.png",
     tagline: "Keiser's partner in Mumbai.",
     description:
       "A Keiser University global partner in Mumbai, Garodia International College offers internationally aligned, career-focused programs that connect Indian students to Keiser's worldwide academic community and U.S. study options.",
@@ -401,6 +565,7 @@ export const CAMPUSES: Campus[] = [
     region: "Global Campuses",
     lat: -6.2241,
     lng: 106.813,
+    photo: "campuses/sampoerna-indonesia.png",
     tagline: "American-accredited education in Indonesia.",
     description:
       "Through its partnership with Keiser University, Sampoerna University offers Indonesian students access to American-style, English-language degree programs and credit pathways to study in the United States.",
@@ -421,6 +586,7 @@ export const CAMPUSES: Campus[] = [
     region: "Global Campuses",
     lat: 7.2906,
     lng: 80.6337,
+    photo: "campuses/sri-lanka.png",
     tagline: "Keiser's campus in Sri Lanka.",
     description:
       "A Keiser University global partner, the American College of Higher Education brings American-style, English-language higher education to Kandy, opening international degree and transfer pathways for Sri Lankan students.",
@@ -435,15 +601,37 @@ export const CAMPUSES: Campus[] = [
     skyline: [0.6, 0.65, 0.7, 0.5, 0.6, 0.55],
   },
   {
-    id: "vietnam",
-    name: "Keiser University Vietnam",
+    id: "vietnam-hue",
+    name: "Keiser University Vietnam — Hue",
+    city: "Hue, Vietnam",
+    region: "Global Campuses",
+    lat: 16.4637,
+    lng: 107.5909,
+    photo: "campuses/vietnam-hue.jpg",
+    tagline: "An American university in central Vietnam.",
+    description:
+      "Based in the historic city of Hue, this Keiser University Vietnam campus brings Keiser's American, English-language model to central Vietnam, giving students international degree programs and direct pathways into the wider Keiser network.",
+    established: "Keiser global campus",
+    setting: "International campus",
+    programs: ["International Business", "Information Technology", "Hospitality Management", "English Language"],
+    highlights: [
+      "American degree programs in Vietnam",
+      "Pathways to U.S. study",
+      "Located in Hue, central Vietnam",
+    ],
+    skyline: [0.7, 0.8, 0.6, 0.75, 0.55, 0.65],
+  },
+  {
+    id: "vietnam-hcmc",
+    name: "Keiser University Vietnam — Ho Chi Minh City",
     city: "Ho Chi Minh City, Vietnam",
     region: "Global Campuses",
     lat: 10.7769,
     lng: 106.7009,
-    tagline: "An American university in Vietnam.",
+    photo: "campuses/vietnam-hcmc.jpg",
+    tagline: "An American degree in Vietnam's largest city.",
     description:
-      "Keiser University Vietnam extends Keiser's American, English-language model to one of Southeast Asia's most dynamic cities, giving Vietnamese students international degree programs and direct pathways into the wider Keiser network.",
+      "In the heart of Ho Chi Minh City, this Keiser University Vietnam campus delivers American, English-language programs and U.S. study pathways to students across southern Vietnam and Southeast Asia.",
     established: "Keiser global campus",
     setting: "International campus",
     programs: ["International Business", "Information Technology", "Hospitality Management", "English Language"],
@@ -452,7 +640,48 @@ export const CAMPUSES: Campus[] = [
       "Pathways to U.S. study",
       "Located in Ho Chi Minh City",
     ],
-    skyline: [0.7, 0.8, 0.6, 0.75, 0.55, 0.65],
+    skyline: [0.75, 0.85, 0.6, 0.8, 0.55, 0.7],
+  },
+  {
+    id: "e-campus",
+    name: "Keiser University eCampus",
+    city: "Online Undergraduate · Fort Lauderdale, FL",
+    region: "Online & Global",
+    lat: 26.1955,
+    lng: -80.173,
+    tagline: "Online undergraduate, fully supported.",
+    description:
+      "Keiser's eCampus delivers the university's undergraduate degrees fully online, supported from the Nineteen Hundred Building in Fort Lauderdale. It's built for working adults, military students, and learners worldwide who want the Keiser experience without relocating.",
+    established: "eCampus (online undergraduate)",
+    setting: "Online undergraduate division",
+    programs: ["Business (BBA)", "Health Services Administration", "Criminal Justice", "Information Technology"],
+    highlights: [
+      "Fully online undergraduate degrees",
+      "Supported from the Nineteen Hundred Building",
+      "Military & transfer friendly",
+    ],
+    skyline: [0.6, 0.7, 0.55, 0.65, 0.5, 0.6],
+  },
+  {
+    id: "china",
+    name: "Keiser University China",
+    city: "Shanghai, China",
+    region: "Global Campuses",
+    lat: 31.2304,
+    lng: 121.4737,
+    photo: "campuses/china.jpg",
+    tagline: "Keiser's presence in China.",
+    description:
+      "Keiser University's China program connects students in Shanghai to Keiser's American, English-language academic model and global network, with pathways toward study in the United States.",
+    established: "Keiser global campus",
+    setting: "International campus",
+    programs: ["International Business", "English Language", "Hospitality Management", "Information Technology"],
+    highlights: [
+      "American curriculum in China",
+      "Pathways to U.S. study",
+      "Part of Keiser's global network",
+    ],
+    skyline: [0.8, 0.7, 0.9, 0.6, 0.75, 0.55],
   },
   {
     id: "online",

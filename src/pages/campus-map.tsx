@@ -17,6 +17,12 @@ import { speak, speechSupported, stopSpeaking } from "../lib/narration";
 // Base-aware asset URL (works under the GitHub Pages project sub-path).
 const asset = (path: string) => `${import.meta.env.BASE_URL}${path}`;
 
+/** Resolve a campus's photo URL: explicit `photo`, else the `<id>.jpg`
+ *  convention. With `alt`, prefer the secondary `photoAlt` (3D billboard).
+ *  Always base-aware so it works on the Pages sub-path. */
+const campusPhotoSrc = (campus: Campus, alt = false) =>
+  asset((alt ? campus.photoAlt : undefined) ?? campus.photo ?? `campuses/${campus.id}.jpg`);
+
 /** Load a texture without suspending; resolves to null if the file is absent. */
 function useOptionalTexture(url: string): THREE.Texture | null {
   const [tex, setTex] = useState<THREE.Texture | null>(null);
@@ -422,7 +428,8 @@ function CampusScene({ campus }: { campus: Campus }) {
   });
 
   // Real campus photo, shown on a billboard "sign" when one is present.
-  const photo = useOptionalTexture(asset(`campuses/${campus.id}.jpg`));
+  // Prefers the secondary photo so the panel hero and billboard can differ.
+  const photo = useOptionalTexture(campusPhotoSrc(campus, true));
 
   return (
     <group>
@@ -849,13 +856,23 @@ export default function CampusMap() {
               </div>
             </div>
 
-            <div className="border-t border-white/10 p-4">
+            <div className="space-y-2 border-t border-white/10 p-4">
               <button
                 onClick={enterTour}
                 className="w-full rounded-xl bg-keiser-gold py-3 text-sm font-bold text-keiser-navy transition hover:bg-keiser-flame"
               >
                 Enter 3D campus tour →
               </button>
+              {selected.virtualTour && (
+                <a
+                  href={selected.virtualTour}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex w-full items-center justify-center gap-2 rounded-xl border border-keiser-gold/50 py-3 text-sm font-bold text-keiser-gold transition hover:bg-keiser-gold/15"
+                >
+                  Take the virtual tour ↗
+                </a>
+              )}
             </div>
           </div>
         </section>
@@ -929,20 +946,35 @@ export default function CampusMap() {
 
 // ---- Campus panel hero: real photo when available, gradient fallback -------
 function CampusHero({ campus, onClose }: { campus: Campus; onClose: () => void }) {
-  // Resolve an explicit photo URL, else a conventional drop-in path. If the
-  // file is missing (or fails to load) we fall back to the brand gradient, so
-  // the panel always looks intentional whether or not photos are present.
-  const src = campus.photo ?? `${import.meta.env.BASE_URL}campuses/${campus.id}.jpg`;
+  // The hero shows the primary photo (explicit `photo` or the `<id>.jpg`
+  // convention) plus any `gallery` images, auto-rotating between them. If
+  // images are missing it falls back to the brand gradient, so the panel
+  // always looks intentional. (Parent keys this by campus id, so state resets
+  // per campus.)
+  const images = useMemo(
+    () => [campusPhotoSrc(campus), ...(campus.gallery ?? []).map((g) => asset(g))],
+    [campus],
+  );
+  const [idx, setIdx] = useState(0);
   const [hasPhoto, setHasPhoto] = useState(true);
+
+  useEffect(() => {
+    if (images.length < 2) return;
+    const handle = window.setInterval(() => setIdx((i) => (i + 1) % images.length), 4500);
+    return () => window.clearInterval(handle);
+  }, [images]);
+
+  const src = images[idx];
 
   return (
     <div className="relative min-h-[8.5rem] overflow-hidden bg-gradient-to-br from-keiser-blue to-keiser-navy p-5">
       {hasPhoto && (
         <img
+          key={src}
           src={src}
           alt={`${campus.name} campus`}
-          onError={() => setHasPhoto(false)}
-          className="absolute inset-0 h-full w-full object-cover"
+          onError={() => idx === 0 && setHasPhoto(false)}
+          className="absolute inset-0 h-full w-full animate-fade-in object-cover"
         />
       )}
       {/* Dark overlay keeps text legible over any photo. */}
@@ -962,6 +994,20 @@ function CampusHero({ campus, onClose }: { campus: Campus; onClose: () => void }
         <h2 className="mt-1 text-xl font-extrabold text-white drop-shadow">{campus.name}</h2>
         <p className="text-sm text-slate-200 drop-shadow">{campus.city}</p>
         <p className="mt-2 text-sm italic text-keiser-gold drop-shadow">“{campus.tagline}”</p>
+
+        {/* Gallery dots */}
+        {hasPhoto && images.length > 1 && (
+          <div className="mt-3 flex gap-1.5">
+            {images.map((_, i) => (
+              <span
+                key={i}
+                className={`h-1.5 rounded-full transition-all ${
+                  i === idx ? "w-4 bg-keiser-gold" : "w-1.5 bg-white/40"
+                }`}
+              />
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
