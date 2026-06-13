@@ -23,26 +23,26 @@ const asset = (path: string) => `${import.meta.env.BASE_URL}${path}`;
 const campusPhotoSrc = (campus: Campus, alt = false) =>
   asset((alt ? campus.photoAlt : undefined) ?? campus.photo ?? `campuses/${campus.id}.jpg`);
 
-/** Country flag emoji for a campus, derived from its city's country (US for
- *  the Florida/US campuses, 🌐 for the online/global node). */
-function countryFlag(campus: Campus): string {
+/** Base-aware flag image URL for a campus, derived from its city's country
+ *  (US for Florida/US campuses, a globe for the online/global node). */
+function flagSrc(campus: Campus): string {
   const city = campus.city.toLowerCase();
   const byCountry: Array<[string, string]> = [
-    ["nicaragua", "🇳🇮"],
-    ["bolivia", "🇧🇴"],
-    ["ecuador", "🇪🇨"],
-    ["peru", "🇵🇪"],
-    ["el salvador", "🇸🇻"],
-    ["spain", "🇪🇸"],
-    ["india", "🇮🇳"],
-    ["indonesia", "🇮🇩"],
-    ["sri lanka", "🇱🇰"],
-    ["vietnam", "🇻🇳"],
-    ["china", "🇨🇳"],
+    ["nicaragua", "ni"],
+    ["bolivia", "bo"],
+    ["ecuador", "ec"],
+    ["peru", "pe"],
+    ["el salvador", "sv"],
+    ["spain", "es"],
+    ["india", "in"],
+    ["indonesia", "id"],
+    ["sri lanka", "lk"],
+    ["vietnam", "vn"],
+    ["china", "cn"],
   ];
-  for (const [name, flag] of byCountry) if (city.includes(name)) return flag;
-  if (campus.region === "Online & Global" && city.includes("anywhere")) return "🌐";
-  return "🇺🇸"; // Florida + US campuses
+  for (const [name, cc] of byCountry) if (city.includes(name)) return asset(`flags/${cc}.svg`);
+  if (campus.region === "Online & Global" && city.includes("anywhere")) return asset("globe.svg");
+  return asset("flags/us.svg"); // Florida + US campuses
 }
 
 /** Load a texture without suspending; resolves to null if the file is absent. */
@@ -191,6 +191,7 @@ function CampusPins({
   campuses,
   selectedId,
   hoveredId,
+  showCity,
   onHover,
   onSelect,
   globeRef,
@@ -198,6 +199,7 @@ function CampusPins({
   campuses: Campus[];
   selectedId: string | null;
   hoveredId: string | null;
+  showCity: boolean;
   onHover: (id: string | null) => void;
   onSelect: (campus: Campus) => void;
   globeRef: React.MutableRefObject<THREE.Mesh | null>;
@@ -207,7 +209,8 @@ function CampusPins({
       {campuses.map((campus) => {
         const pos = latLngToVec3(campus.lat, campus.lng, GLOBE_RADIUS * 1.02);
         const active = selectedId === campus.id || hoveredId === campus.id;
-        const flag = countryFlag(campus);
+        // City names appear when zoomed in or when this marker is active.
+        const withLabel = active || showCity;
         return (
           <group key={campus.id} position={pos}>
             {/* Precise location anchor dot on the surface. */}
@@ -215,7 +218,7 @@ function CampusPins({
               <sphereGeometry args={[0.016, 10, 10]} />
               <meshBasicMaterial color={active ? FLAME_GOLD : "#ffffff"} />
             </mesh>
-            {/* Flag + city marker. */}
+            {/* Flag marker; reveals the city/name as you zoom in. */}
             <Html
               position={[0, 0.05, 0]}
               center
@@ -230,16 +233,22 @@ function CampusPins({
                 }}
                 onPointerOver={() => onHover(campus.id)}
                 onPointerOut={() => onHover(null)}
-                className={`flex -translate-y-1 cursor-pointer items-center gap-1 whitespace-nowrap rounded-full border px-1.5 py-0.5 text-[10px] font-semibold shadow-lg transition ${
+                className={`flex -translate-y-1 cursor-pointer items-center gap-1 whitespace-nowrap rounded-full border px-1 py-0.5 shadow-lg transition ${
                   active
                     ? "z-10 scale-110 border-keiser-gold bg-keiser-gold text-keiser-navy"
                     : "border-white/25 bg-keiser-navy/85 text-white hover:border-keiser-gold/70 hover:bg-keiser-navy"
                 }`}
               >
-                <span className="text-[12px] leading-none">{flag}</span>
-                <span className="font-display uppercase tracking-wide">
-                  {active ? campus.name : campus.city.split(",")[0]}
-                </span>
+                <img
+                  src={flagSrc(campus)}
+                  alt=""
+                  className="h-3 w-[1.05rem] shrink-0 rounded-[1px] object-cover ring-1 ring-black/20"
+                />
+                {withLabel && (
+                  <span className="px-0.5 font-display text-[10px] font-semibold uppercase tracking-wide">
+                    {active ? campus.name : campus.city.split(",")[0]}
+                  </span>
+                )}
               </button>
             </Html>
           </group>
@@ -552,12 +561,18 @@ function GlobeScene({
 }) {
   const globeRef = useRef<THREE.Mesh | null>(null);
   const groupRef = useRef<THREE.Group>(null);
+  const { camera } = useThree();
+  // Reveal city labels once the camera dollies in past this distance.
+  const [zoomedIn, setZoomedIn] = useState(false);
 
-  // Idle auto-rotation when nothing is selected (the "drone hover" feel).
   useFrame((_, delta) => {
+    // Idle auto-rotation when nothing is selected (the "drone hover" feel).
     if (!selectedId && groupRef.current) {
       groupRef.current.rotation.y += delta * 0.04;
     }
+    // Toggle city labels on zoom (only set state when the threshold is crossed).
+    const near = camera.position.length() < 5;
+    if (near !== zoomedIn) setZoomedIn(near);
   });
 
   return (
@@ -574,6 +589,7 @@ function GlobeScene({
           campuses={campuses}
           selectedId={selectedId}
           hoveredId={hoveredId}
+          showCity={zoomedIn}
           onHover={onHover}
           onSelect={onSelect}
           globeRef={globeRef}
