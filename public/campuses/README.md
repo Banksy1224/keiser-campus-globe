@@ -34,7 +34,8 @@ Provided so far: **Flagship** (`flagship.jpg` + `flagship-2.jpg` gallery +
 `flagship-aerial.webp` billboard), **Tampa** (`tampa.webp`),
 **Miami** (`miami.jpg`),
 **West Palm Beach – Jog Road** (`west-palm-beach.jpg` + `west-palm-beach-2.png`),
-and **Pembroke Pines** (`pembroke-pines.jpg`).
+**Pembroke Pines** (`pembroke-pines.jpg`), and **Latin American Campus –
+San Marcos, Nicaragua** (`latin-american.jpg`).
 
 Multiple photos per campus:
 - `photo` (or the default `<id>.jpg`) is the primary hero image.
