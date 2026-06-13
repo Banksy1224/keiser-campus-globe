@@ -856,13 +856,23 @@ export default function CampusMap() {
               </div>
             </div>
 
-            <div className="border-t border-white/10 p-4">
+            <div className="space-y-2 border-t border-white/10 p-4">
               <button
                 onClick={enterTour}
                 className="w-full rounded-xl bg-keiser-gold py-3 text-sm font-bold text-keiser-navy transition hover:bg-keiser-flame"
               >
                 Enter 3D campus tour →
               </button>
+              {selected.virtualTour && (
+                <a
+                  href={selected.virtualTour}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex w-full items-center justify-center gap-2 rounded-xl border border-keiser-gold/50 py-3 text-sm font-bold text-keiser-gold transition hover:bg-keiser-gold/15"
+                >
+                  Take the virtual tour ↗
+                </a>
+              )}
             </div>
           </div>
         </section>

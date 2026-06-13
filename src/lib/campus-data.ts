@@ -28,6 +28,8 @@ export interface Campus {
   photoAlt?: string;
   /** Optional extra hero photos; the panel hero auto-rotates through them. */
   gallery?: string[];
+  /** Optional external 360°/virtual-tour URL (opens in a new tab). */
+  virtualTour?: string;
   tagline: string;
   description: string;
   established: string;
@@ -55,6 +57,7 @@ export const CAMPUSES: Campus[] = [
     flagship: true,
     photoAlt: "campuses/flagship-aerial.webp",
     gallery: ["campuses/flagship-2.jpg"],
+    virtualTour: "https://www.youvisit.com/tour/keiseruniversity/keiseruniversity?tourid=tour2",
     tagline: "The heart of the Keiser ecosystem.",
     description:
       "Set on 100 wooded acres, the Flagship is Keiser's only traditional residential campus — dorms, a dining commons, NAIA athletics, and a student center built for the full college experience. It anchors the entire network you see arcing across the globe.",
