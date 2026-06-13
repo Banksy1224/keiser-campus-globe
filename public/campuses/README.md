@@ -31,8 +31,8 @@ automatically as the hero image in that campus's info panel.
 | `online.jpg`           | Keiser University Online         |
 
 Provided so far: **Flagship** (`flagship.jpg` + `flagship-2.jpg` gallery +
-`flagship-aerial.webp` billboard), **Tampa** (`tampa.webp`),
-**Miami** (`miami.jpg`),
+`flagship-aerial.webp` billboard), **Fort Lauderdale** (`fort-lauderdale.jpg`),
+**Tampa** (`tampa.webp`), **Miami** (`miami.jpg`),
 **West Palm Beach – Jog Road** (`west-palm-beach.jpg` + `west-palm-beach-2.png`),
 **Pembroke Pines** (`pembroke-pines.jpg`), **Latin American Campus –
 San Marcos, Nicaragua** (`latin-american.jpg`), and **Language Center –
