@@ -560,6 +560,7 @@ export const CAMPUSES: Campus[] = [
     region: "Global Campuses",
     lat: 7.2906,
     lng: 80.6337,
+    photo: "campuses/sri-lanka.png",
     tagline: "Keiser's campus in Sri Lanka.",
     description:
       "A Keiser University global partner, the American College of Higher Education brings American-style, English-language higher education to Kandy, opening international degree and transfer pathways for Sri Lankan students.",
