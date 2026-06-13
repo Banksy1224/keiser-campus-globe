@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import { Html, OrbitControls, Stars } from "@react-three/drei";
+import { Html, OrbitControls, Stars, useTexture } from "@react-three/drei";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 import * as THREE from "three";
 import {
@@ -11,13 +11,34 @@ import {
   type Campus,
   type CampusRegion,
 } from "../lib/campus-data";
-import {
-  GLOBE_RADIUS,
-  arcCurvePoints,
-  arcPoint,
-  createEarthTexture,
-  latLngToVec3,
-} from "../lib/globe-utils";
+import { GLOBE_RADIUS, arcCurvePoints, arcPoint, latLngToVec3 } from "../lib/globe-utils";
+import { speak, speechSupported, stopSpeaking } from "../lib/narration";
+
+// Base-aware asset URL (works under the GitHub Pages project sub-path).
+const asset = (path: string) => `${import.meta.env.BASE_URL}${path}`;
+
+/** Load a texture without suspending; resolves to null if the file is absent. */
+function useOptionalTexture(url: string): THREE.Texture | null {
+  const [tex, setTex] = useState<THREE.Texture | null>(null);
+  useEffect(() => {
+    let alive = true;
+    const loader = new THREE.TextureLoader();
+    loader.load(
+      url,
+      (t) => {
+        t.colorSpace = THREE.SRGBColorSpace;
+        if (alive) setTex(t);
+        else t.dispose();
+      },
+      undefined,
+      () => alive && setTex(null),
+    );
+    return () => {
+      alive = false;
+    };
+  }, [url]);
+  return tex;
+}
 
 // ---- Tunable feel knobs ---------------------------------------------------
 const FLIGHT_SECONDS = 1.8; // duration of a single campus-to-campus flight
@@ -30,23 +51,67 @@ const TOUR_DWELL_MS = 5400; // guided-tour pause at each campus before moving on
 const GOLD = new THREE.Color(FLAME_GOLD);
 
 // ---------------------------------------------------------------------------
-// Globe: textured sphere + atmosphere rim glow.
+// Globe: photoreal Earth — real day map, terrain normals, ocean sun-glint,
+// glowing night-side city lights, a drifting cloud layer, and atmosphere glow.
+// Textures: NASA Visible Earth (public domain), via the three.js asset set.
 // ---------------------------------------------------------------------------
 function Globe({ globeRef }: { globeRef: React.MutableRefObject<THREE.Mesh | null> }) {
-  const texture = useMemo(() => createEarthTexture(), []);
+  const [dayMap, normalMap, specMap, nightMap, cloudsMap] = useTexture([
+    asset("textures/earth_atmos_2048.jpg"),
+    asset("textures/earth_normal_2048.jpg"),
+    asset("textures/earth_specular_2048.jpg"),
+    asset("textures/earth_lights_2048.png"),
+    asset("textures/earth_clouds_1024.png"),
+  ]);
+
+  useMemo(() => {
+    dayMap.colorSpace = THREE.SRGBColorSpace;
+    nightMap.colorSpace = THREE.SRGBColorSpace;
+    cloudsMap.colorSpace = THREE.SRGBColorSpace;
+  }, [dayMap, nightMap, cloudsMap]);
+
+  const cloudsRef = useRef<THREE.Mesh>(null);
+  useFrame((_, delta) => {
+    if (cloudsRef.current) cloudsRef.current.rotation.y += delta * 0.008;
+  });
+
   return (
     <group>
       <mesh ref={globeRef}>
-        <sphereGeometry args={[GLOBE_RADIUS, 64, 64]} />
-        <meshStandardMaterial map={texture} roughness={0.9} metalness={0.1} />
+        <sphereGeometry args={[GLOBE_RADIUS, 96, 96]} />
+        <meshStandardMaterial
+          map={dayMap}
+          normalMap={normalMap}
+          // Oceans are bright in the specular map → slightly metallic → catch a
+          // sun-glint; landmasses stay matte.
+          metalnessMap={specMap}
+          metalness={0.32}
+          roughness={0.66}
+          // City lights glow on the night side.
+          emissiveMap={nightMap}
+          emissive={"#ffcf8f"}
+          emissiveIntensity={1.05}
+        />
       </mesh>
+
+      {/* Cloud layer, drifting a touch faster than the surface. */}
+      <mesh ref={cloudsRef} scale={1.01}>
+        <sphereGeometry args={[GLOBE_RADIUS, 64, 64]} />
+        <meshStandardMaterial
+          map={cloudsMap}
+          transparent
+          opacity={0.4}
+          depthWrite={false}
+        />
+      </mesh>
+
       {/* Atmosphere: a slightly larger back-facing shell with additive glow. */}
-      <mesh scale={1.18}>
+      <mesh scale={1.16}>
         <sphereGeometry args={[GLOBE_RADIUS, 48, 48]} />
         <meshBasicMaterial
-          color="#3f6fd1"
+          color="#5a8bd6"
           transparent
-          opacity={0.18}
+          opacity={0.2}
           side={THREE.BackSide}
           blending={THREE.AdditiveBlending}
         />
@@ -356,6 +421,9 @@ function CampusScene({ campus }: { campus: Campus }) {
     }
   });
 
+  // Real campus photo, shown on a billboard "sign" when one is present.
+  const photo = useOptionalTexture(asset(`campuses/${campus.id}.jpg`));
+
   return (
     <group>
       <ambientLight intensity={0.5} />
@@ -414,6 +482,30 @@ function CampusScene({ campus }: { campus: Campus }) {
           </group>
         );
       })}
+
+      {/* Real campus photo on a raised billboard (only when a photo exists). */}
+      {photo && (
+        <group position={[0, 1.9, -3.6]}>
+          {/* Posts */}
+          <mesh position={[-1.7, -0.7, 0]}>
+            <cylinderGeometry args={[0.07, 0.07, 2.6, 8]} />
+            <meshStandardMaterial color="#0e1a36" />
+          </mesh>
+          <mesh position={[1.7, -0.7, 0]}>
+            <cylinderGeometry args={[0.07, 0.07, 2.6, 8]} />
+            <meshStandardMaterial color="#0e1a36" />
+          </mesh>
+          {/* Gold frame + photo */}
+          <mesh position={[0, 0, -0.03]}>
+            <planeGeometry args={[3.9, 2.3]} />
+            <meshBasicMaterial color={FLAME_GOLD} />
+          </mesh>
+          <mesh>
+            <planeGeometry args={[3.7, 2.1]} />
+            <meshBasicMaterial map={photo} toneMapped={false} />
+          </mesh>
+        </group>
+      )}
     </group>
   );
 }
@@ -450,8 +542,10 @@ function GlobeScene({
 
   return (
     <>
-      <ambientLight intensity={0.7} />
-      <directionalLight position={[5, 3, 5]} intensity={1.2} />
+      {/* Low ambient so the night side goes dark and the city lights glow;
+          a bright "sun" gives the terminator + ocean glint. */}
+      <ambientLight intensity={0.18} />
+      <directionalLight position={[6, 2, 4]} intensity={2.1} />
       <Stars radius={120} depth={60} count={4000} factor={4} saturation={0} fade speed={0.6} />
       <group ref={groupRef}>
         <Globe globeRef={globeRef} />
@@ -479,6 +573,7 @@ export default function CampusMap() {
   const [regionFilter, setRegionFilter] = useState<CampusRegion | "All">("All");
   const [inTour, setInTour] = useState(false); // inside a 3D campus scene
   const [tourPlaying, setTourPlaying] = useState(false); // guided auto-tour
+  const [narrate, setNarrate] = useState(speechSupported()); // spoken tour guide
   const controlsRef = useRef<OrbitControlsImpl | null>(null);
 
   const visibleCampuses = useMemo(
@@ -512,6 +607,7 @@ export default function CampusMap() {
     setTourPlaying(false);
     setInTour(false);
     setSelectedId(null);
+    stopSpeaking();
   }
 
   // --- guided tour ---------------------------------------------------------
@@ -524,6 +620,26 @@ export default function CampusMap() {
 
   function stopTour() {
     setTourPlaying(false);
+  }
+
+  // The spoken tour guide: when a campus settles, read its intro aloud. The
+  // short delay lets the camera land first so narration matches the arrival.
+  useEffect(() => {
+    if (!narrate || !selected) {
+      stopSpeaking();
+      return;
+    }
+    const handle = window.setTimeout(() => {
+      speak(`${selected.name}. ${selected.tagline} ${selected.description}`);
+    }, 1100);
+    return () => window.clearTimeout(handle);
+  }, [selected, narrate]);
+
+  function toggleNarration() {
+    setNarrate((on) => {
+      if (on) stopSpeaking();
+      return !on;
+    });
   }
 
   function goToTourIndex(idx: number) {
@@ -583,7 +699,7 @@ export default function CampusMap() {
             />
           </>
         ) : (
-          <>
+          <Suspense fallback={null}>
             <GlobeScene
               campuses={visibleCampuses}
               selectedId={selectedId}
@@ -601,7 +717,7 @@ export default function CampusMap() {
               maxDistance={9}
               rotateSpeed={0.5}
             />
-          </>
+          </Suspense>
         )}
       </Canvas>
 
@@ -617,14 +733,33 @@ export default function CampusMap() {
           <p className="mt-1 max-w-md text-xs text-slate-300/80 sm:text-sm">{subtitle}</p>
         </div>
 
-        {/* Guided-tour toggle */}
-        <button
-          onClick={tourPlaying ? stopTour : startTour}
-          className="pointer-events-auto flex items-center gap-2 rounded-full border border-keiser-gold/40 bg-keiser-navy/70 px-4 py-2 text-sm font-semibold text-keiser-gold backdrop-blur transition hover:bg-keiser-gold/15"
-        >
-          {tourPlaying ? <PauseIcon /> : <PlayIcon />}
-          {tourPlaying ? "Pause tour" : "Guided tour"}
-        </button>
+        <div className="pointer-events-auto flex items-center gap-2">
+          {/* Narration toggle (spoken tour guide) */}
+          {speechSupported() && (
+            <button
+              onClick={toggleNarration}
+              aria-pressed={narrate}
+              title={narrate ? "Narration on" : "Narration off"}
+              className={`flex items-center gap-2 rounded-full border px-3 py-2 text-sm font-semibold backdrop-blur transition ${
+                narrate
+                  ? "border-keiser-gold/60 bg-keiser-gold/15 text-keiser-gold"
+                  : "border-white/20 bg-keiser-navy/70 text-slate-300 hover:bg-white/10"
+              }`}
+            >
+              {narrate ? <SpeakerIcon /> : <MuteIcon />}
+              <span className="hidden sm:inline">{narrate ? "Voice on" : "Voice off"}</span>
+            </button>
+          )}
+
+          {/* Guided-tour toggle */}
+          <button
+            onClick={tourPlaying ? stopTour : startTour}
+            className="flex items-center gap-2 rounded-full border border-keiser-gold/40 bg-keiser-navy/70 px-4 py-2 text-sm font-semibold text-keiser-gold backdrop-blur transition hover:bg-keiser-gold/15"
+          >
+            {tourPlaying ? <PauseIcon /> : <PlayIcon />}
+            {tourPlaying ? "Pause tour" : "Guided tour"}
+          </button>
+        </div>
       </header>
 
       {/* ---- Region filter + campus list (left rail) ---- */}
@@ -849,6 +984,23 @@ function PlayIcon() {
   return (
     <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
       <path d="M8 5v14l11-7z" />
+    </svg>
+  );
+}
+function SpeakerIcon() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor">
+      <path d="M3 10v4h4l5 5V5L7 10H3z" />
+      <path d="M16 8a5 5 0 0 1 0 8" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+      <path d="M18.5 5.5a8.5 8.5 0 0 1 0 13" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+    </svg>
+  );
+}
+function MuteIcon() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor">
+      <path d="M3 10v4h4l5 5V5L7 10H3z" />
+      <path d="M16 9l5 6M21 9l-5 6" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
     </svg>
   );
 }
