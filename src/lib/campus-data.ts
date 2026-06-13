@@ -338,6 +338,27 @@ export const CAMPUSES: Campus[] = [
     ],
     skyline: [0.75, 0.6, 0.85, 0.55, 0.7, 0.5],
   },
+  {
+    id: "managua-language-center",
+    name: "Language Center — Managua",
+    city: "Managua, Nicaragua",
+    region: "Latin America",
+    lat: 12.115,
+    lng: -86.2362,
+    photo: "campuses/managua-language-center.png",
+    tagline: "English-language gateway in the capital.",
+    description:
+      "Keiser's Language Center in Managua helps students across Nicaragua build the English fluency they need for an American-style education, feeding into the residential Latin American Campus and the wider Keiser network.",
+    established: "Managua language center",
+    setting: "Language & pathway center",
+    programs: ["English Language", "Academic Preparation", "Pathway to Degree Programs"],
+    highlights: [
+      "English-language preparation",
+      "Located in the capital, Managua",
+      "Pathway to the Latin American Campus",
+    ],
+    skyline: [0.5, 0.6, 0.55, 0.5, 0.45],
+  },
 
   // ---- Latin American global network partners --------------------------
   {
