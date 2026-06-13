@@ -24,6 +24,8 @@ export interface Campus {
    * and otherwise falls back to the brand gradient. Can also be a full URL.
    */
   photo?: string;
+  /** Optional second photo, shown on the 3D campus-scene billboard. */
+  photoAlt?: string;
   tagline: string;
   description: string;
   established: string;
@@ -61,6 +63,27 @@ export const CAMPUSES: Campus[] = [
       "Lakeside trails and a true college quad",
     ],
     skyline: [0.9, 0.6, 1.0, 0.7, 0.5, 0.8, 0.65, 0.55],
+  },
+  {
+    id: "west-palm-beach",
+    name: "West Palm Beach Campus (Jog Road)",
+    city: "West Palm Beach, FL",
+    region: "Florida",
+    lat: 26.7065,
+    lng: -80.13,
+    photoAlt: "campuses/west-palm-beach-2.png",
+    tagline: "Home of the Graduate School.",
+    description:
+      "On Jog Road in West Palm Beach, this campus is a hub for Keiser's graduate and professional programs — distinct from the nearby residential Flagship — serving working professionals across South Florida.",
+    established: "West Palm Beach campus",
+    setting: "Graduate & professional campus",
+    programs: ["Business (MBA/DBA)", "Nursing (BSN/MSN)", "Psychology", "Education"],
+    highlights: [
+      "Home to the Graduate School",
+      "On Jog Road, distinct from the Flagship",
+      "Built for working professionals",
+    ],
+    skyline: [0.7, 0.6, 0.85, 0.55, 0.7, 0.6, 0.5],
   },
   {
     id: "fort-lauderdale",

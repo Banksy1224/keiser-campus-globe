@@ -18,9 +18,10 @@ import { speak, speechSupported, stopSpeaking } from "../lib/narration";
 const asset = (path: string) => `${import.meta.env.BASE_URL}${path}`;
 
 /** Resolve a campus's photo URL: explicit `photo`, else the `<id>.jpg`
- *  convention. Always base-aware so it works on the Pages sub-path. */
-const campusPhotoSrc = (campus: Campus) =>
-  asset(campus.photo ?? `campuses/${campus.id}.jpg`);
+ *  convention. With `alt`, prefer the secondary `photoAlt` (3D billboard).
+ *  Always base-aware so it works on the Pages sub-path. */
+const campusPhotoSrc = (campus: Campus, alt = false) =>
+  asset((alt ? campus.photoAlt : undefined) ?? campus.photo ?? `campuses/${campus.id}.jpg`);
 
 /** Load a texture without suspending; resolves to null if the file is absent. */
 function useOptionalTexture(url: string): THREE.Texture | null {
@@ -427,7 +428,8 @@ function CampusScene({ campus }: { campus: Campus }) {
   });
 
   // Real campus photo, shown on a billboard "sign" when one is present.
-  const photo = useOptionalTexture(campusPhotoSrc(campus));
+  // Prefers the secondary photo so the panel hero and billboard can differ.
+  const photo = useOptionalTexture(campusPhotoSrc(campus, true));
 
   return (
     <group>
