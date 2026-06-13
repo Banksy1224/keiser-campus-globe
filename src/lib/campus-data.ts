@@ -537,6 +537,7 @@ export const CAMPUSES: Campus[] = [
     region: "Global Campuses",
     lat: -6.2241,
     lng: 106.813,
+    photo: "campuses/sampoerna-indonesia.png",
     tagline: "American-accredited education in Indonesia.",
     description:
       "Through its partnership with Keiser University, Sampoerna University offers Indonesian students access to American-style, English-language degree programs and credit pathways to study in the United States.",
