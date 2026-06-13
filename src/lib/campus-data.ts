@@ -493,6 +493,7 @@ export const CAMPUSES: Campus[] = [
     region: "Global Campuses",
     lat: 36.5101,
     lng: -4.8856,
+    photo: "campuses/spain.png",
     tagline: "An American degree on the Costa del Sol.",
     description:
       "Part of Keiser University's global network, the American College in Spain offers a U.S.-style, English-language university experience on Spain's Mediterranean coast — a launchpad for students who want an international education with a European setting.",
