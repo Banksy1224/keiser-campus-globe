@@ -250,6 +250,7 @@ export const CAMPUSES: Campus[] = [
     region: "Florida",
     lat: 29.2108,
     lng: -81.0228,
+    photo: "campuses/daytona.webp",
     tagline: "Career-ready by the coast.",
     description:
       "The Daytona Beach campus blends healthcare and business programs with a relaxed coastal setting, serving students across Volusia County and beyond.",
