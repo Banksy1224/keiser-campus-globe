@@ -34,9 +34,12 @@ Provided so far: **Flagship** (`flagship.jpg` + `flagship-2.jpg` gallery +
 `flagship-aerial.webp` billboard), **Fort Lauderdale** (`fort-lauderdale.jpg`),
 **Tampa** (`tampa.webp`), **Miami** (`miami.jpg`),
 **West Palm Beach – Jog Road** (`west-palm-beach.jpg` + `west-palm-beach-2.png`),
-**Pembroke Pines** (`pembroke-pines.jpg`), **Latin American Campus –
-San Marcos, Nicaragua** (`latin-american.jpg`), and **Language Center –
-Managua, Nicaragua** (`managua-language-center.png`).
+**Pembroke Pines** (`pembroke-pines.jpg`), **Port St. Lucie**
+(`port-st-lucie.jpg`), **Melbourne** (`melbourne.jpg`), **Graduate School –
+Fort Lauderdale** (`graduate-school.jpg`), **eCampus – Online Undergraduate**
+(`e-campus.jpg`), **Latin American Campus – San Marcos, Nicaragua**
+(`latin-american.jpg`), and **Language Center – Managua, Nicaragua**
+(`managua-language-center.png`).
 
 Multiple photos per campus:
 - `photo` (or the default `<id>.jpg`) is the primary hero image.
