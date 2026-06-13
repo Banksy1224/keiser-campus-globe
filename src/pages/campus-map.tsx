@@ -23,6 +23,28 @@ const asset = (path: string) => `${import.meta.env.BASE_URL}${path}`;
 const campusPhotoSrc = (campus: Campus, alt = false) =>
   asset((alt ? campus.photoAlt : undefined) ?? campus.photo ?? `campuses/${campus.id}.jpg`);
 
+/** Country flag emoji for a campus, derived from its city's country (US for
+ *  the Florida/US campuses, 🌐 for the online/global node). */
+function countryFlag(campus: Campus): string {
+  const city = campus.city.toLowerCase();
+  const byCountry: Array<[string, string]> = [
+    ["nicaragua", "🇳🇮"],
+    ["bolivia", "🇧🇴"],
+    ["ecuador", "🇪🇨"],
+    ["peru", "🇵🇪"],
+    ["el salvador", "🇸🇻"],
+    ["spain", "🇪🇸"],
+    ["india", "🇮🇳"],
+    ["indonesia", "🇮🇩"],
+    ["sri lanka", "🇱🇰"],
+    ["vietnam", "🇻🇳"],
+    ["china", "🇨🇳"],
+  ];
+  for (const [name, flag] of byCountry) if (city.includes(name)) return flag;
+  if (campus.region === "Online & Global" && city.includes("anywhere")) return "🌐";
+  return "🇺🇸"; // Florida + US campuses
+}
+
 /** Load a texture without suspending; resolves to null if the file is absent. */
 function useOptionalTexture(url: string): THREE.Texture | null {
   const [tex, setTex] = useState<THREE.Texture | null>(null);
@@ -183,52 +205,43 @@ function CampusPins({
   return (
     <group>
       {campuses.map((campus) => {
-        const pos = latLngToVec3(campus.lat, campus.lng, GLOBE_RADIUS * 1.012);
+        const pos = latLngToVec3(campus.lat, campus.lng, GLOBE_RADIUS * 1.02);
         const active = selectedId === campus.id || hoveredId === campus.id;
+        const flag = countryFlag(campus);
         return (
           <group key={campus.id} position={pos}>
-            <mesh
-              onPointerOver={(e) => {
-                e.stopPropagation();
-                onHover(campus.id);
-                document.body.style.cursor = "pointer";
-              }}
-              onPointerOut={() => {
-                onHover(null);
-                document.body.style.cursor = "auto";
-              }}
-              onClick={(e) => {
-                e.stopPropagation();
-                onSelect(campus);
-              }}
-              scale={active ? 1.7 : 1}
+            {/* Precise location anchor dot on the surface. */}
+            <mesh scale={active ? 1.6 : 1}>
+              <sphereGeometry args={[0.016, 10, 10]} />
+              <meshBasicMaterial color={active ? FLAME_GOLD : "#ffffff"} />
+            </mesh>
+            {/* Flag + city marker. */}
+            <Html
+              position={[0, 0.05, 0]}
+              center
+              distanceFactor={9}
+              occlude={globeRef.current ? [globeRef] : undefined}
+              zIndexRange={[30, 0]}
             >
-              <sphereGeometry args={[0.035, 16, 16]} />
-              <meshBasicMaterial color={campus.flagship ? "#fff4d6" : FLAME_GOLD} />
-            </mesh>
-            {/* Glow halo */}
-            <mesh scale={active ? 2.6 : 1.8}>
-              <sphereGeometry args={[0.035, 12, 12]} />
-              <meshBasicMaterial
-                color={FLAME_GOLD}
-                transparent
-                opacity={active ? 0.35 : 0.18}
-                blending={THREE.AdditiveBlending}
-              />
-            </mesh>
-            {active && (
-              <Html
-                position={[0, 0.12, 0]}
-                center
-                distanceFactor={8}
-                occlude={globeRef.current ? [globeRef] : undefined}
-                style={{ pointerEvents: "none" }}
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onSelect(campus);
+                }}
+                onPointerOver={() => onHover(campus.id)}
+                onPointerOut={() => onHover(null)}
+                className={`flex -translate-y-1 cursor-pointer items-center gap-1 whitespace-nowrap rounded-full border px-1.5 py-0.5 text-[10px] font-semibold shadow-lg transition ${
+                  active
+                    ? "z-10 scale-110 border-keiser-gold bg-keiser-gold text-keiser-navy"
+                    : "border-white/25 bg-keiser-navy/85 text-white hover:border-keiser-gold/70 hover:bg-keiser-navy"
+                }`}
               >
-                <div className="whitespace-nowrap rounded-md border border-keiser-gold/40 bg-keiser-navy/90 px-2 py-1 text-[11px] font-semibold text-keiser-gold shadow-lg backdrop-blur">
-                  {campus.name}
-                </div>
-              </Html>
-            )}
+                <span className="text-[12px] leading-none">{flag}</span>
+                <span className="font-display uppercase tracking-wide">
+                  {active ? campus.name : campus.city.split(",")[0]}
+                </span>
+              </button>
+            </Html>
           </group>
         );
       })}
