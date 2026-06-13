@@ -427,6 +427,27 @@ export const CAMPUSES: Campus[] = [
     ],
     skyline: [0.5, 0.6, 0.55, 0.5, 0.45],
   },
+  {
+    id: "el-salvador",
+    name: "Keiser University El Salvador",
+    city: "San Salvador, El Salvador",
+    region: "Latin America",
+    lat: 13.6929,
+    lng: -89.2182,
+    photo: "campuses/el-salvador.jpg",
+    tagline: "An American university in San Salvador.",
+    description:
+      "Keiser University El Salvador brings the American, English-language model to the heart of San Salvador, offering Salvadoran students international degree programs and pathways into the wider Keiser network.",
+    established: "Keiser global campus",
+    setting: "International urban campus",
+    programs: ["International Business", "English Language", "Information Technology", "Hospitality Management"],
+    highlights: [
+      "American curriculum in El Salvador",
+      "Located in San Salvador",
+      "Pathways across the Keiser network",
+    ],
+    skyline: [0.85, 0.7, 0.95, 0.6, 0.8, 0.55],
+  },
 
   // ---- Latin American global network partners --------------------------
   {
