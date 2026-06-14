@@ -239,11 +239,11 @@ export const CAMPUSES: Campus[] = [
     lng: -82.5307,
     tagline: "Coastal, focused, hands-on.",
     description:
-      "On Florida's Cultural Coast, the Sarasota campus is known for personal attention, tight class sizes, and strong healthcare and veterinary-technology programs.",
+      "On Florida's Cultural Coast, the Sarasota campus is known for personal attention, tight class sizes, and strong healthcare and business programs.",
     established: "2008",
     setting: "Coastal campus",
-    programs: ["Veterinary Technology", "Nursing (BSN)", "Occupational Therapy Assistant", "Business"],
-    highlights: ["Veterinary technology labs", "Small class sizes", "Florida's Cultural Coast"],
+    programs: ["Nursing (BSN)", "Occupational Therapy Assistant", "Medical Assisting", "Business"],
+    highlights: ["Personal attention & small class sizes", "Hands-on health-science labs", "Florida's Cultural Coast"],
     skyline: [0.5, 0.6, 0.55, 0.45, 0.6],
   },
   {
