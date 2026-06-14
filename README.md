@@ -98,6 +98,13 @@ campus's actual location (photogrammetry buildings + terrain), via
 credit). For a public admissions tool, keep the referrer restriction on and
 monitor usage in the Google Cloud console.
 
+**Precise campus locations:** the tour centers on each campus's real
+coordinates. Verified campuses are hard-coded; the rest are **geocoded from
+their street address** at tour time (cached in the browser) using the same key.
+For that geocoding to work, also enable the **Geocoding API** on the project and
+include it in the key's API restrictions. Without it, those campuses fall back
+to their approximate dataset coordinates — still close, just not building-exact.
+
 ## Tuning knobs
 
 Most of the "feel" lives in constants at the top of
