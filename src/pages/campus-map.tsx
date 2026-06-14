@@ -25,6 +25,7 @@ import {
 } from "../lib/campus-data";
 import { GLOBE_RADIUS, arcCurvePoints, arcPoint, latLngToVec3 } from "../lib/globe-utils";
 import { speak, speechSupported, stopSpeaking } from "../lib/narration";
+import { GOOGLE_KEY, useResolvedLatLng, useStreetViewAvailable } from "../lib/campus-location";
 
 // Base-aware asset URL (works under the GitHub Pages project sub-path).
 const asset = (path: string) => `${import.meta.env.BASE_URL}${path}`;
@@ -803,12 +804,8 @@ export default function CampusMap() {
         </Canvas>
       )}
 
-      {/* ---- Real Google Photorealistic 3D tiles (replaces the globe canvas) ---- */}
-      {tilesTour && selected && (
-        <Suspense fallback={null}>
-          <CampusTilesOverlay campus={selected} />
-        </Suspense>
-      )}
+      {/* ---- Real Google 3D tiles / Street View (replaces the globe canvas) ---- */}
+      {tilesTour && selected && <TourViewer key={selected.id} campus={selected} />}
 
       {/* ---- AI concierge chat ---- */}
       {AI_ENABLED && aiOpen && (
@@ -1064,6 +1061,82 @@ export default function CampusMap() {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Tour viewer: the photoreal aerial 3D tiles by default, with a Street View
+// toggle wherever Google has ground-level imagery near the campus. Keyed by
+// campus id in the parent, so it remounts (and resets to aerial) per campus —
+// and only one of the two views (WebGL canvas vs. iframe) is ever mounted.
+// ---------------------------------------------------------------------------
+function TourViewer({ campus }: { campus: Campus }) {
+  const [mode, setMode] = useState<"aerial" | "street">("aerial");
+  const streetAvailable = useStreetViewAvailable(campus);
+
+  return (
+    <>
+      {mode === "aerial" ? (
+        <Suspense fallback={null}>
+          <CampusTilesOverlay campus={campus} />
+        </Suspense>
+      ) : (
+        <CampusStreetView campus={campus} />
+      )}
+
+      {/* View switch — only shown where Street View imagery actually exists. */}
+      {streetAvailable && (
+        <div className="absolute left-1/2 top-20 z-30 flex -translate-x-1/2 gap-1 rounded-full border border-keiser-gold/30 bg-keiser-navy/80 p-1 shadow-2xl backdrop-blur sm:top-24">
+          <ViewTab active={mode === "aerial"} onClick={() => setMode("aerial")}>
+            Aerial 3D
+          </ViewTab>
+          <ViewTab active={mode === "street"} onClick={() => setMode("street")}>
+            Street View
+          </ViewTab>
+        </div>
+      )}
+    </>
+  );
+}
+
+function ViewTab({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`rounded-full px-3.5 py-1.5 text-xs font-bold transition sm:text-sm ${
+        active ? "bg-keiser-gold text-keiser-navy" : "text-slate-200 hover:bg-white/10"
+      }`}
+    >
+      {children}
+    </button>
+  );
+}
+
+// Ground-level Google Street View panorama at the campus's resolved location,
+// via the Maps Embed API (no extra JS bundle). Light enough to live here.
+function CampusStreetView({ campus }: { campus: Campus }) {
+  const { lat, lng } = useResolvedLatLng(campus);
+  const src = `https://www.google.com/maps/embed/v1/streetview?key=${GOOGLE_KEY}&location=${lat},${lng}&heading=0&pitch=2&fov=80`;
+  return (
+    <div className="absolute inset-0 bg-keiser-navy">
+      <iframe
+        key={`${lat},${lng}`}
+        title={`${campus.name} — Street View`}
+        src={src}
+        className="h-full w-full border-0"
+        allowFullScreen
+        loading="lazy"
+        referrerPolicy="no-referrer-when-downgrade"
+      />
     </div>
   );
 }
