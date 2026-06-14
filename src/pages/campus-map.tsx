@@ -217,48 +217,63 @@ function CampusPins({
       {campuses.map((campus) => {
         const pos = latLngToVec3(campus.lat, campus.lng, GLOBE_RADIUS * 1.02);
         const active = selectedId === campus.id || hoveredId === campus.id;
-        // City names appear when zoomed in or when this marker is active.
-        const withLabel = active || showCity;
+        // Declutter: at the wide view show just a dot; reveal the flag marker
+        // when zoomed in, hovered, or selected.
+        const showMarker = active || showCity;
         return (
           <group key={campus.id} position={pos}>
-            {/* Precise location anchor dot on the surface. */}
-            <mesh scale={active ? 1.6 : 1}>
-              <sphereGeometry args={[0.016, 10, 10]} />
+            {/* Larger invisible hit target (easy to tap on mobile). */}
+            <mesh
+              onClick={(e) => {
+                e.stopPropagation();
+                onSelect(campus);
+              }}
+              onPointerOver={(e) => {
+                e.stopPropagation();
+                onHover(campus.id);
+                document.body.style.cursor = "pointer";
+              }}
+              onPointerOut={() => {
+                onHover(null);
+                document.body.style.cursor = "auto";
+              }}
+            >
+              <sphereGeometry args={[0.06, 10, 10]} />
+              <meshBasicMaterial transparent opacity={0} depthWrite={false} />
+            </mesh>
+            {/* Visible location dot. */}
+            <mesh scale={active ? 1.9 : 1}>
+              <sphereGeometry args={[0.02, 12, 12]} />
               <meshBasicMaterial color={active ? FLAME_GOLD : "#ffffff"} />
             </mesh>
-            {/* Flag marker; reveals the city/name as you zoom in. */}
-            <Html
-              position={[0, 0.05, 0]}
-              center
-              distanceFactor={9}
-              occlude={globeRef.current ? [globeRef] : undefined}
-              zIndexRange={[30, 0]}
-            >
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onSelect(campus);
-                }}
-                onPointerOver={() => onHover(campus.id)}
-                onPointerOut={() => onHover(null)}
-                className={`flex -translate-y-1 cursor-pointer items-center gap-1 whitespace-nowrap rounded-full border px-1 py-0.5 shadow-lg transition ${
-                  active
-                    ? "z-10 scale-110 border-keiser-gold bg-keiser-gold text-keiser-navy"
-                    : "border-white/25 bg-keiser-navy/85 text-white hover:border-keiser-gold/70 hover:bg-keiser-navy"
-                }`}
+            {/* Flag + city marker — constant readable size (no distance scaling),
+                only shown when zoomed in / hovered / selected. */}
+            {showMarker && (
+              <Html
+                position={[0, 0.06, 0]}
+                center
+                occlude={globeRef.current ? [globeRef] : undefined}
+                zIndexRange={[30, 0]}
+                style={{ pointerEvents: "none" }}
               >
-                <img
-                  src={flagSrc(campus)}
-                  alt=""
-                  className="h-3 w-[1.05rem] shrink-0 rounded-[1px] object-cover ring-1 ring-black/20"
-                />
-                {withLabel && (
-                  <span className="px-0.5 font-display text-[10px] font-semibold uppercase tracking-wide">
+                <div
+                  className={`flex -translate-y-2 items-center gap-1 whitespace-nowrap rounded-full border px-1.5 py-0.5 shadow-lg ${
+                    active
+                      ? "border-keiser-gold bg-keiser-gold text-keiser-navy"
+                      : "border-white/25 bg-keiser-navy/90 text-white"
+                  }`}
+                >
+                  <img
+                    src={flagSrc(campus)}
+                    alt=""
+                    className="h-3.5 w-5 shrink-0 rounded-[1px] object-cover ring-1 ring-black/20"
+                  />
+                  <span className="px-0.5 font-display text-[11px] font-semibold uppercase tracking-wide">
                     {active ? campus.name : campus.city.split(",")[0]}
                   </span>
-                )}
-              </button>
-            </Html>
+                </div>
+              </Html>
+            )}
           </group>
         );
       })}
