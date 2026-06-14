@@ -752,52 +752,59 @@ export default function CampusMap() {
       ? `3D tour · ${selected.name}`
       : "Drag to orbit · scroll to zoom · click a campus to fly in";
 
+  // When showing the real Google 3D tiles, swap the whole globe canvas out for
+  // the tiles canvas — never mount both WebGL contexts at once (that caused
+  // "Context Lost"). The stylized fallback still lives inside the globe canvas.
+  const tilesTour = Boolean(inTour && selected && TILES_ENABLED);
+
   return (
     <div className="relative h-full w-full overflow-hidden bg-keiser-navy">
-      {/* ---- 3D canvas ---- */}
-      <Canvas
-        camera={{ position: [0, 1.6, ORBIT_DISTANCE], fov: 45 }}
-        gl={{ antialias: true }}
-        dpr={[1, 2]}
-      >
-        <color attach="background" args={["#0b1c33"]} />
-        {inTour && selected && !TILES_ENABLED ? (
-          <>
-            <Stars radius={80} depth={40} count={1500} factor={3} fade speed={0.4} />
-            <CampusScene campus={selected} />
-            <OrbitControls
-              makeDefault
-              enablePan={false}
-              minDistance={4}
-              maxDistance={12}
-              maxPolarAngle={Math.PI / 2.1}
-            />
-          </>
-        ) : (
-          <Suspense fallback={null}>
-            <GlobeScene
-              campuses={visibleCampuses}
-              selectedId={selectedId}
-              hoveredId={hoveredId}
-              target={selected}
-              controlsRef={controlsRef}
-              onHover={setHoveredId}
-              onSelect={handleManualSelect}
-            />
-            <OrbitControls
-              ref={controlsRef}
-              makeDefault
-              enablePan={false}
-              minDistance={2.6}
-              maxDistance={9}
-              rotateSpeed={0.5}
-            />
-          </Suspense>
-        )}
-      </Canvas>
+      {/* ---- 3D canvas (globe / stylized scene) — hidden during a tiles tour ---- */}
+      {!tilesTour && (
+        <Canvas
+          camera={{ position: [0, 1.6, ORBIT_DISTANCE], fov: 45 }}
+          gl={{ antialias: true }}
+          dpr={[1, 2]}
+        >
+          <color attach="background" args={["#0b1c33"]} />
+          {inTour && selected ? (
+            <>
+              <Stars radius={80} depth={40} count={1500} factor={3} fade speed={0.4} />
+              <CampusScene campus={selected} />
+              <OrbitControls
+                makeDefault
+                enablePan={false}
+                minDistance={4}
+                maxDistance={12}
+                maxPolarAngle={Math.PI / 2.1}
+              />
+            </>
+          ) : (
+            <Suspense fallback={null}>
+              <GlobeScene
+                campuses={visibleCampuses}
+                selectedId={selectedId}
+                hoveredId={hoveredId}
+                target={selected}
+                controlsRef={controlsRef}
+                onHover={setHoveredId}
+                onSelect={handleManualSelect}
+              />
+              <OrbitControls
+                ref={controlsRef}
+                makeDefault
+                enablePan={false}
+                minDistance={2.6}
+                maxDistance={9}
+                rotateSpeed={0.5}
+              />
+            </Suspense>
+          )}
+        </Canvas>
+      )}
 
-      {/* ---- Real Google Photorealistic 3D tiles (overlay during a tour) ---- */}
-      {inTour && selected && TILES_ENABLED && (
+      {/* ---- Real Google Photorealistic 3D tiles (replaces the globe canvas) ---- */}
+      {tilesTour && selected && (
         <Suspense fallback={null}>
           <CampusTilesOverlay campus={selected} />
         </Suspense>
