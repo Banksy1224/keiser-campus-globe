@@ -41,6 +41,11 @@ const ADDRESSES: Record<string, string> = {
   "port-st-lucie": "9400 SW Discovery Way, Port St. Lucie, FL 34987",
   "west-palm-beach": "2085 Vista Pkwy, West Palm Beach, FL 33411",
   "e-campus": "1900 W Commercial Blvd, Fort Lauderdale, FL 33309",
+  "pembroke-pines": "1640 SW 145th Ave, Pembroke Pines, FL 33027",
+  "new-port-richey": "6300 US Hwy 19 N, New Port Richey, FL 34652",
+  clearwater: "16120 US Hwy 19 N, Clearwater, FL 33764",
+  "fort-myers": "9100 Forum Corporate Pkwy, Fort Myers, FL 33905",
+  "graduate-school": "1500 NW 49th St, Fort Lauderdale, FL 33309",
 };
 
 async function geocode(query: string, key: string): Promise<{ lat: number; lng: number } | null> {
