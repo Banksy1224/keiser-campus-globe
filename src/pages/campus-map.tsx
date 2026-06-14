@@ -1080,16 +1080,18 @@ function CampusHero({ campus, onClose }: { campus: Campus; onClose: () => void }
   );
 }
 
-// ---- Brand wordmark: real logo when present, styled text fallback ----------
+// ---- Brand wordmark: official logo on a white plate, text fallback ----------
 function BrandLogo() {
   const [ok, setOk] = useState(true);
   return ok ? (
-    <img
-      src={asset("brand/wordmark-white.svg")}
-      onError={() => setOk(false)}
-      alt="Keiser University"
-      className="h-7 w-auto drop-shadow sm:h-10"
-    />
+    <div className="inline-flex items-center rounded-lg bg-white/95 px-2.5 py-1 shadow-md ring-1 ring-black/5">
+      <img
+        src={asset("brand/wordmark.png")}
+        onError={() => setOk(false)}
+        alt="Keiser University"
+        className="h-6 w-auto sm:h-9"
+      />
+    </div>
   ) : (
     <div className="flex items-center gap-2">
       <img src={asset("globe.svg")} alt="" className="h-6 w-6 sm:h-7 sm:w-7" />
