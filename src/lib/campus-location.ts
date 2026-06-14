@@ -40,6 +40,21 @@ const ADDRESSES: Record<string, string> = {
   clearwater: "16120 US Hwy 19 N, Clearwater, FL 33764",
   "fort-myers": "9100 Forum Corporate Pkwy, Fort Myers, FL 33905",
   "graduate-school": "1500 NW 49th St, Fort Lauderdale, FL 33309",
+
+  // International campuses & global partners (geocoded from the institution's
+  // published street address). El Salvador is intentionally omitted — no
+  // verifiable physical street address — so it falls back to "<name>, <city>".
+  "latin-american": "Gasolinera UNO, 2 c. al Sur, San Marcos, Carazo 45000, Nicaragua",
+  "managua-language-center": "Offiplaza San Dionisio, Pista Suburbana, Managua, Nicaragua",
+  "santa-cruz": "Calle Los Pinos 473, Barrio Sirari, Santa Cruz de la Sierra, Bolivia",
+  "ista-ecuador": "Balsas 416, Urdesa Central, Guayaquil, Ecuador",
+  "usil-peru": "Av. La Fontana 550, La Molina, Lima, Peru",
+  spain: "CC La Alzambra, Urb. La Alzambra, 29660 Puerto Banús, Marbella, Málaga, Spain",
+  "garodia-india": "55, 90 Feet Road, Garodia Nagar, Ghatkopar East, Mumbai 400077, India",
+  "sampoerna-indonesia": "Jl. Raya Pasar Minggu Kav. 16, Pancoran, Jakarta 12780, Indonesia",
+  "sri-lanka": "502 Peradeniya Road, Kandy, Sri Lanka",
+  "vietnam-hue": "28 Nguyen Tri Phuong Street, Thuan Hoa Ward, Hue, Vietnam",
+  "vietnam-hcmc": "21 Le Quy Don, Vo Thi Sau Ward, District 3, Ho Chi Minh City, Vietnam",
 };
 
 async function geocode(query: string, key: string): Promise<{ lat: number; lng: number } | null> {
