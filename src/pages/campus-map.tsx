@@ -5,10 +5,14 @@ import { Html, OrbitControls, Stars, useTexture } from "@react-three/drei";
 // Real Google Photorealistic 3D tiles overlay — lazy so the 3d-tiles library
 // only downloads when a campus tour is opened (and only when a key is set).
 const CampusTilesOverlay = lazy(() => import("./campus-tiles"));
+// AI concierge chat — lazy; only loads when opened.
+const AIConcierge = lazy(() => import("./ai-concierge"));
 // A Google Maps key (Map Tiles API) enables the photoreal 3D campus tour;
 // without it we fall back to the stylized 3D scene. Kept local so the heavy
 // tiles module stays out of the main chunk.
 const TILES_ENABLED = Boolean(import.meta.env.VITE_GOOGLE_MAPS_API_KEY);
+// A configured backend endpoint enables the AI concierge.
+const AI_ENABLED = Boolean(import.meta.env.VITE_AI_ENDPOINT);
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 import * as THREE from "three";
 import {
@@ -634,6 +638,7 @@ export default function CampusMap() {
   const [tourPlaying, setTourPlaying] = useState(false); // guided auto-tour
   const [narrate, setNarrate] = useState(speechSupported()); // spoken tour guide
   const [listOpen, setListOpen] = useState(false); // mobile campus-list drawer
+  const [aiOpen, setAiOpen] = useState(false); // AI concierge panel
   const controlsRef = useRef<OrbitControlsImpl | null>(null);
 
   const visibleCampuses = useMemo(
@@ -732,6 +737,15 @@ export default function CampusMap() {
     setInTour(true);
   }
 
+  // The AI concierge recommends campuses; fly to the first match.
+  function handleConciergeFocus(ids: string[]) {
+    const first = CAMPUSES.find((c) => c.id === ids[0]);
+    if (!first) return;
+    setTourPlaying(false);
+    setInTour(false);
+    handleSelect(first);
+  }
+
   const subtitle = tourPlaying
     ? `Guided tour · ${selected ? selected.name : "starting…"}`
     : inTour && selected
@@ -789,6 +803,13 @@ export default function CampusMap() {
         </Suspense>
       )}
 
+      {/* ---- AI concierge chat ---- */}
+      {AI_ENABLED && aiOpen && (
+        <Suspense fallback={null}>
+          <AIConcierge onFocus={handleConciergeFocus} onClose={() => setAiOpen(false)} />
+        </Suspense>
+      )}
+
       {/* ---- Top bar ---- */}
       <header className="pointer-events-none absolute inset-x-0 top-0 flex items-start justify-between gap-2 p-3 sm:p-6">
         <div className="pointer-events-auto min-w-0">
@@ -835,6 +856,22 @@ export default function CampusMap() {
             {tourPlaying ? <PauseIcon /> : <PlayIcon />}
             <span className="hidden sm:inline">{tourPlaying ? "Pause tour" : "Guided tour"}</span>
           </button>
+
+          {/* AI concierge toggle */}
+          {AI_ENABLED && (
+            <button
+              onClick={() => setAiOpen((v) => !v)}
+              aria-pressed={aiOpen}
+              className={`flex items-center gap-2 rounded-full border p-2 text-sm font-semibold backdrop-blur transition sm:px-4 ${
+                aiOpen
+                  ? "border-keiser-gold bg-keiser-gold/15 text-keiser-gold"
+                  : "border-keiser-gold/40 bg-keiser-navy/70 text-keiser-gold hover:bg-keiser-gold/15"
+              }`}
+            >
+              <GuideSparkleIcon />
+              <span className="hidden sm:inline">Ask the guide</span>
+            </button>
+          )}
         </div>
       </header>
 
@@ -1141,6 +1178,14 @@ function ListIcon() {
   return (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
       <path d="M4 6h16M4 12h16M4 18h16" />
+    </svg>
+  );
+}
+function GuideSparkleIcon() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor">
+      <path d="M12 2l1.7 4.9L18.5 8l-4.8 1.1L12 14l-1.7-4.9L5.5 8l4.8-1.1z" />
+      <path d="M18.5 13l.9 2.4 2.4.9-2.4.9-.9 2.4-.9-2.4L15.2 16l2.4-.9z" />
     </svg>
   );
 }
