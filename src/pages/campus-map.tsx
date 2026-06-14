@@ -5,10 +5,14 @@ import { Html, OrbitControls, Stars, useTexture } from "@react-three/drei";
 // Real Google Photorealistic 3D tiles overlay — lazy so the 3d-tiles library
 // only downloads when a campus tour is opened (and only when a key is set).
 const CampusTilesOverlay = lazy(() => import("./campus-tiles"));
+// AI concierge chat — lazy; only loads when opened.
+const AIConcierge = lazy(() => import("./ai-concierge"));
 // A Google Maps key (Map Tiles API) enables the photoreal 3D campus tour;
 // without it we fall back to the stylized 3D scene. Kept local so the heavy
 // tiles module stays out of the main chunk.
 const TILES_ENABLED = Boolean(import.meta.env.VITE_GOOGLE_MAPS_API_KEY);
+// A configured backend endpoint enables the AI concierge.
+const AI_ENABLED = Boolean(import.meta.env.VITE_AI_ENDPOINT);
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 import * as THREE from "three";
 import {
@@ -217,48 +221,63 @@ function CampusPins({
       {campuses.map((campus) => {
         const pos = latLngToVec3(campus.lat, campus.lng, GLOBE_RADIUS * 1.02);
         const active = selectedId === campus.id || hoveredId === campus.id;
-        // City names appear when zoomed in or when this marker is active.
-        const withLabel = active || showCity;
+        // Declutter: at the wide view show just a dot; reveal the flag marker
+        // when zoomed in, hovered, or selected.
+        const showMarker = active || showCity;
         return (
           <group key={campus.id} position={pos}>
-            {/* Precise location anchor dot on the surface. */}
-            <mesh scale={active ? 1.6 : 1}>
-              <sphereGeometry args={[0.016, 10, 10]} />
+            {/* Larger invisible hit target (easy to tap on mobile). */}
+            <mesh
+              onClick={(e) => {
+                e.stopPropagation();
+                onSelect(campus);
+              }}
+              onPointerOver={(e) => {
+                e.stopPropagation();
+                onHover(campus.id);
+                document.body.style.cursor = "pointer";
+              }}
+              onPointerOut={() => {
+                onHover(null);
+                document.body.style.cursor = "auto";
+              }}
+            >
+              <sphereGeometry args={[0.06, 10, 10]} />
+              <meshBasicMaterial transparent opacity={0} depthWrite={false} />
+            </mesh>
+            {/* Visible location dot. */}
+            <mesh scale={active ? 1.9 : 1}>
+              <sphereGeometry args={[0.02, 12, 12]} />
               <meshBasicMaterial color={active ? FLAME_GOLD : "#ffffff"} />
             </mesh>
-            {/* Flag marker; reveals the city/name as you zoom in. */}
-            <Html
-              position={[0, 0.05, 0]}
-              center
-              distanceFactor={9}
-              occlude={globeRef.current ? [globeRef] : undefined}
-              zIndexRange={[30, 0]}
-            >
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onSelect(campus);
-                }}
-                onPointerOver={() => onHover(campus.id)}
-                onPointerOut={() => onHover(null)}
-                className={`flex -translate-y-1 cursor-pointer items-center gap-1 whitespace-nowrap rounded-full border px-1 py-0.5 shadow-lg transition ${
-                  active
-                    ? "z-10 scale-110 border-keiser-gold bg-keiser-gold text-keiser-navy"
-                    : "border-white/25 bg-keiser-navy/85 text-white hover:border-keiser-gold/70 hover:bg-keiser-navy"
-                }`}
+            {/* Flag + city marker — constant readable size (no distance scaling),
+                only shown when zoomed in / hovered / selected. */}
+            {showMarker && (
+              <Html
+                position={[0, 0.06, 0]}
+                center
+                occlude={globeRef.current ? [globeRef] : undefined}
+                zIndexRange={[30, 0]}
+                style={{ pointerEvents: "none" }}
               >
-                <img
-                  src={flagSrc(campus)}
-                  alt=""
-                  className="h-3 w-[1.05rem] shrink-0 rounded-[1px] object-cover ring-1 ring-black/20"
-                />
-                {withLabel && (
-                  <span className="px-0.5 font-display text-[10px] font-semibold uppercase tracking-wide">
+                <div
+                  className={`flex -translate-y-2 items-center gap-1 whitespace-nowrap rounded-full border px-1.5 py-0.5 shadow-lg ${
+                    active
+                      ? "border-keiser-gold bg-keiser-gold text-keiser-navy"
+                      : "border-white/25 bg-keiser-navy/90 text-white"
+                  }`}
+                >
+                  <img
+                    src={flagSrc(campus)}
+                    alt=""
+                    className="h-3.5 w-5 shrink-0 rounded-[1px] object-cover ring-1 ring-black/20"
+                  />
+                  <span className="px-0.5 font-display text-[11px] font-semibold uppercase tracking-wide">
                     {active ? campus.name : campus.city.split(",")[0]}
                   </span>
-                )}
-              </button>
-            </Html>
+                </div>
+              </Html>
+            )}
           </group>
         );
       })}
@@ -619,6 +638,7 @@ export default function CampusMap() {
   const [tourPlaying, setTourPlaying] = useState(false); // guided auto-tour
   const [narrate, setNarrate] = useState(speechSupported()); // spoken tour guide
   const [listOpen, setListOpen] = useState(false); // mobile campus-list drawer
+  const [aiOpen, setAiOpen] = useState(false); // AI concierge panel
   const controlsRef = useRef<OrbitControlsImpl | null>(null);
 
   const visibleCampuses = useMemo(
@@ -717,6 +737,15 @@ export default function CampusMap() {
     setInTour(true);
   }
 
+  // The AI concierge recommends campuses; fly to the first match.
+  function handleConciergeFocus(ids: string[]) {
+    const first = CAMPUSES.find((c) => c.id === ids[0]);
+    if (!first) return;
+    setTourPlaying(false);
+    setInTour(false);
+    handleSelect(first);
+  }
+
   const subtitle = tourPlaying
     ? `Guided tour · ${selected ? selected.name : "starting…"}`
     : inTour && selected
@@ -774,6 +803,13 @@ export default function CampusMap() {
         </Suspense>
       )}
 
+      {/* ---- AI concierge chat ---- */}
+      {AI_ENABLED && aiOpen && (
+        <Suspense fallback={null}>
+          <AIConcierge onFocus={handleConciergeFocus} onClose={() => setAiOpen(false)} />
+        </Suspense>
+      )}
+
       {/* ---- Top bar ---- */}
       <header className="pointer-events-none absolute inset-x-0 top-0 flex items-start justify-between gap-2 p-3 sm:p-6">
         <div className="pointer-events-auto min-w-0">
@@ -820,6 +856,22 @@ export default function CampusMap() {
             {tourPlaying ? <PauseIcon /> : <PlayIcon />}
             <span className="hidden sm:inline">{tourPlaying ? "Pause tour" : "Guided tour"}</span>
           </button>
+
+          {/* AI concierge toggle */}
+          {AI_ENABLED && (
+            <button
+              onClick={() => setAiOpen((v) => !v)}
+              aria-pressed={aiOpen}
+              className={`flex items-center gap-2 rounded-full border p-2 text-sm font-semibold backdrop-blur transition sm:px-4 ${
+                aiOpen
+                  ? "border-keiser-gold bg-keiser-gold/15 text-keiser-gold"
+                  : "border-keiser-gold/40 bg-keiser-navy/70 text-keiser-gold hover:bg-keiser-gold/15"
+              }`}
+            >
+              <GuideSparkleIcon />
+              <span className="hidden sm:inline">Ask the guide</span>
+            </button>
+          )}
         </div>
       </header>
 
@@ -1126,6 +1178,14 @@ function ListIcon() {
   return (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
       <path d="M4 6h16M4 12h16M4 18h16" />
+    </svg>
+  );
+}
+function GuideSparkleIcon() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor">
+      <path d="M12 2l1.7 4.9L18.5 8l-4.8 1.1L12 14l-1.7-4.9L5.5 8l4.8-1.1z" />
+      <path d="M18.5 13l.9 2.4 2.4.9-2.4.9-.9 2.4-.9-2.4L15.2 16l2.4-.9z" />
     </svg>
   );
 }

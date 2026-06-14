@@ -42,6 +42,10 @@ jobs:
           # HTTP-referrer restricted). Without it, the app falls back to the
           # stylized 3D campus scene.
           VITE_GOOGLE_MAPS_API_KEY: ${{ secrets.VITE_GOOGLE_MAPS_API_KEY }}
+          # Optional: enables the AI concierge. Add a repo VARIABLE named
+          # VITE_AI_ENDPOINT = your backend URL (see server/README.md). It's a
+          # public URL, so a variable (not a secret) is fine.
+          VITE_AI_ENDPOINT: ${{ vars.VITE_AI_ENDPOINT }}
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3

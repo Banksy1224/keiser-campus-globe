@@ -1,0 +1,18 @@
+{
+  "name": "keiser-campus-globe-concierge",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Tiny Express proxy that powers the Keiser Campus Globe AI concierge via the Claude API. Holds the ANTHROPIC_API_KEY server-side.",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.104.1",
+    "cors": "^2.8.5",
+    "express": "^5.1.0"
+  }
+}
