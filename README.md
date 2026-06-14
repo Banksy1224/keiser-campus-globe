@@ -105,6 +105,16 @@ For that geocoding to work, also enable the **Geocoding API** on the project and
 include it in the key's API restrictions. Without it, those campuses fall back
 to their approximate dataset coordinates — still close, just not building-exact.
 
+**Street View:** inside a tour, an **Aerial 3D / Street View** switch appears
+wherever Google has ground-level imagery near the campus, dropping a Street View
+panorama at the same resolved coordinates (via the **Maps Embed API** iframe).
+Availability is probed with the free **Street View Static API** metadata
+endpoint, so the toggle is hidden where there's no coverage. Enable both the
+**Maps Embed API** and **Street View Static API** on the project and add them to
+the key's API restrictions. The Embed API has no per-request cost; the metadata
+probe is free. Only one view is ever mounted at a time, so the WebGL tiles and
+the iframe never compete for resources.
+
 ## Tuning knobs
 
 Most of the "feel" lives in constants at the top of
