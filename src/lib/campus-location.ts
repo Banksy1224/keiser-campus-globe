@@ -42,10 +42,10 @@ const ADDRESSES: Record<string, string> = {
   "graduate-school": "1500 NW 49th St, Fort Lauderdale, FL 33309",
 
   // International campuses & global partners (geocoded from the institution's
-  // published street address). El Salvador is intentionally omitted — no
-  // verifiable physical street address — so it falls back to "<name>, <city>".
+  // published street address).
   "latin-american": "Gasolinera UNO, 2 c. al Sur, San Marcos, Carazo 45000, Nicaragua",
   "managua-language-center": "Offiplaza San Dionisio, Pista Suburbana, Managua, Nicaragua",
+  "el-salvador": "Torre Milenium, San Salvador, El Salvador",
   "santa-cruz": "Calle Los Pinos 473, Barrio Sirari, Santa Cruz de la Sierra, Bolivia",
   "ista-ecuador": "Balsas 416, Urdesa Central, Guayaquil, Ecuador",
   "usil-peru": "Av. La Fontana 550, La Molina, Lima, Peru",
