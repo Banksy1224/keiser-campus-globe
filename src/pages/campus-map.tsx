@@ -11,6 +11,8 @@ const AIConcierge = lazy(() => import("./ai-concierge"));
 const LeadForm = lazy(() => import("../components/lead-form"));
 // Program finder panel — lazy; only loads when "Find a program" is opened.
 const ProgramFinder = lazy(() => import("../components/program-finder"));
+// Share sheet — lazy; only loads when "Share" is opened.
+const ShareMenu = lazy(() => import("../components/share-menu"));
 // A Google Maps key (Map Tiles API) enables the photoreal 3D campus tour;
 // without it we fall back to the stylized 3D scene. Kept local so the heavy
 // tiles module stays out of the main chunk.
@@ -30,6 +32,7 @@ import {
 import { GLOBE_RADIUS, arcCurvePoints, arcPoint, latLngToVec3 } from "../lib/globe-utils";
 import { speak, speechSupported, stopSpeaking } from "../lib/narration";
 import { matchCampuses } from "../lib/program-search";
+import { readShareParams, shareUrlFor, syncShareUrl } from "../lib/share";
 import { GOOGLE_KEY, useResolvedLatLng, useStreetViewAvailable } from "../lib/campus-location";
 
 // Base-aware asset URL (works under the GitHub Pages project sub-path).
@@ -663,6 +666,7 @@ export default function CampusMap() {
   const [leadOpen, setLeadOpen] = useState(false); // "Request info" inquiry modal
   const [finderOpen, setFinderOpen] = useState(false); // program finder panel
   const [programQuery, setProgramQuery] = useState(""); // active program search
+  const [shareOpen, setShareOpen] = useState(false); // share sheet
   const controlsRef = useRef<OrbitControlsImpl | null>(null);
 
   const visibleCampuses = useMemo(
@@ -678,10 +682,61 @@ export default function CampusMap() {
     [matchedIds],
   );
 
+  // --- shareable deep links ------------------------------------------------
+  // Apply `?campus=…&program=…&tour=1` from the opening URL exactly once.
+  useEffect(() => {
+    const s = readShareParams();
+    if (s.campusId && CAMPUSES.some((c) => c.id === s.campusId)) {
+      setSelectedId(s.campusId);
+      if (s.tour) setInTour(true);
+    }
+    if (s.program) setProgramQuery(s.program);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Keep the address bar in step with the view. The first run is skipped so the
+  // freshly-loaded deep link isn't overwritten before it's applied above.
+  const urlInitialized = useRef(false);
+  useEffect(() => {
+    if (!urlInitialized.current) {
+      urlInitialized.current = true;
+      return;
+    }
+    syncShareUrl({ campusId: selectedId, program: programQuery, tour: inTour });
+  }, [selectedId, programQuery, inTour]);
+
   const selected = useMemo(
     () => CAMPUSES.find((c) => c.id === selectedId) ?? null,
     [selectedId],
   );
+
+  // Link + copy text for the share sheet, derived from whatever's on screen.
+  const shareContent = useMemo(() => {
+    const url = shareUrlFor({
+      campusId: selectedId,
+      program: programQuery.trim() || null,
+      tour: inTour,
+    });
+    if (selected) {
+      return {
+        url,
+        title: `${selected.name} — Keiser University`,
+        text: `${selected.name} (${selected.city}) — “${selected.tagline}” Explore it on Keiser's interactive campus globe.`,
+      };
+    }
+    if (programQuery.trim()) {
+      return {
+        url,
+        title: `${programQuery.trim()} at Keiser University`,
+        text: `See which Keiser University campuses offer ${programQuery.trim()}, on the interactive campus globe.`,
+      };
+    }
+    return {
+      url,
+      title: "Keiser University — Campus Globe",
+      text: "Explore Keiser University's worldwide campuses on an interactive 3D globe.",
+    };
+  }, [selected, selectedId, programQuery, inTour]);
 
   // The tour walks the full roster in dataset order regardless of filter.
   const tourOrder = CAMPUSES;
@@ -861,6 +916,18 @@ export default function CampusMap() {
         </Suspense>
       )}
 
+      {/* ---- Share sheet ---- */}
+      {shareOpen && (
+        <Suspense fallback={null}>
+          <ShareMenu
+            url={shareContent.url}
+            title={shareContent.title}
+            text={shareContent.text}
+            onClose={() => setShareOpen(false)}
+          />
+        </Suspense>
+      )}
+
       {/* ---- Top bar ---- */}
       <header className="pointer-events-none absolute inset-x-0 top-0 flex items-start justify-between gap-2 p-3 sm:p-6">
         <div className="pointer-events-auto min-w-0">
@@ -1035,6 +1102,13 @@ export default function CampusMap() {
               <span className="text-white">“{programQuery.trim()}”</span>
             </button>
             <button
+              onClick={() => setShareOpen(true)}
+              aria-label="Share this search"
+              className="rounded-full bg-white/10 p-1.5 text-keiser-gold transition hover:bg-white/20"
+            >
+              <ShareIcon />
+            </button>
+            <button
               onClick={() => setProgramQuery("")}
               aria-label="Clear program filter"
               className="rounded-full bg-white/10 p-1 text-slate-200 transition hover:bg-white/20"
@@ -1097,12 +1171,20 @@ export default function CampusMap() {
               >
                 Enter 3D campus tour →
               </button>
-              <button
-                onClick={() => setLeadOpen(true)}
-                className="w-full rounded-xl border border-keiser-gold/50 py-3 text-sm font-bold text-keiser-gold transition hover:bg-keiser-gold/15"
-              >
-                Request info →
-              </button>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  onClick={() => setLeadOpen(true)}
+                  className="rounded-xl border border-keiser-gold/50 py-3 text-sm font-bold text-keiser-gold transition hover:bg-keiser-gold/15"
+                >
+                  Request info →
+                </button>
+                <button
+                  onClick={() => setShareOpen(true)}
+                  className="flex items-center justify-center gap-2 rounded-xl border border-keiser-gold/50 py-3 text-sm font-bold text-keiser-gold transition hover:bg-keiser-gold/15"
+                >
+                  <ShareIcon /> Share
+                </button>
+              </div>
               {selected.virtualTour && (
                 <a
                   href={selected.virtualTour}
@@ -1126,6 +1208,13 @@ export default function CampusMap() {
             className="rounded-full border border-keiser-gold/40 bg-keiser-navy/80 px-5 py-2.5 text-sm font-semibold text-keiser-gold backdrop-blur transition hover:bg-keiser-gold/15"
           >
             ← Back to globe
+          </button>
+          <button
+            onClick={() => setShareOpen(true)}
+            aria-label="Share this campus"
+            className="flex items-center gap-2 rounded-full border border-keiser-gold/40 bg-keiser-navy/80 px-5 py-2.5 text-sm font-semibold text-keiser-gold backdrop-blur transition hover:bg-keiser-gold/15"
+          >
+            <ShareIcon /> Share
           </button>
           <button
             onClick={() => setLeadOpen(true)}
@@ -1381,6 +1470,16 @@ function SearchIcon() {
     <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
       <circle cx="11" cy="11" r="7" />
       <path d="m21 21-4.3-4.3" />
+    </svg>
+  );
+}
+function ShareIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="18" cy="5" r="3" />
+      <circle cx="6" cy="12" r="3" />
+      <circle cx="18" cy="19" r="3" />
+      <path d="m8.6 13.5 6.8 4M15.4 6.5l-6.8 4" />
     </svg>
   );
 }
