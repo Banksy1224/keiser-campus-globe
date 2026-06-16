@@ -46,6 +46,12 @@ jobs:
           # VITE_AI_ENDPOINT = your backend URL (see server/README.md). It's a
           # public URL, so a variable (not a secret) is fine.
           VITE_AI_ENDPOINT: ${{ vars.VITE_AI_ENDPOINT }}
+          # Optional: enables the "Request info" lead form. Add a repo VARIABLE
+          # named VITE_WEB3FORMS_KEY (from web3forms.com — the access key is
+          # public-safe). Optionally VITE_LEAD_EMAIL for the mailto fallback.
+          # Without the key, the form still works via a prefilled email.
+          VITE_WEB3FORMS_KEY: ${{ vars.VITE_WEB3FORMS_KEY }}
+          VITE_LEAD_EMAIL: ${{ vars.VITE_LEAD_EMAIL }}
 
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3

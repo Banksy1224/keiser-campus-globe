@@ -115,6 +115,20 @@ the key's API restrictions. The Embed API has no per-request cost; the metadata
 probe is free. Only one view is ever mounted at a time, so the WebGL tiles and
 the iframe never compete for resources.
 
+## Request info (admissions leads)
+
+Every campus panel and the in-tour CTA open a **Request info** form (name,
+email, phone, program & campus of interest, message) so the tour doubles as an
+admissions funnel. It submits to [Web3Forms](https://web3forms.com), which is
+built for static sites — the access key is public-safe and leads are emailed
+straight to the admissions inbox tied to the key (no backend required).
+
+**Enable it:** get a free key at [web3forms.com](https://web3forms.com) (enter
+the inbox where leads should land), then add a repo **variable** named
+`VITE_WEB3FORMS_KEY`. Optionally set `VITE_LEAD_EMAIL` for the fallback. Without
+the key the form still works — it falls back to a prefilled email draft — so it's
+never a dead end.
+
 ## Tuning knobs
 
 Most of the "feel" lives in constants at the top of
