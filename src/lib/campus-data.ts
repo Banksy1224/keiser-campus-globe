@@ -390,7 +390,9 @@ export const CAMPUSES: Campus[] = [
     name: "Latin American Campus",
     city: "San Marcos, Nicaragua",
     region: "Latin America",
-    lat: 12.0833,
+    // San Marcos, Carazo town center (~45 km south of Managua); prior value sat
+    // ~18 km north, near Managua.
+    lat: 11.917,
     lng: -86.2,
     virtualTour: "https://youtu.be/KTpKJbvUy0k?is=O60UzSAqANQLwrLJ",
     tagline: "An American degree in Central America.",
@@ -432,8 +434,10 @@ export const CAMPUSES: Campus[] = [
     name: "Keiser University El Salvador",
     city: "San Salvador, El Salvador",
     region: "Latin America",
-    lat: 13.6929,
-    lng: -89.2182,
+    // Torre Millennium, Paseo General Escalón (Colonia Escalón), west San
+    // Salvador; prior value was the city centroid.
+    lat: 13.7,
+    lng: -89.2333,
     photo: "campuses/el-salvador.jpg",
     tagline: "An American university in San Salvador.",
     description:
@@ -497,8 +501,9 @@ export const CAMPUSES: Campus[] = [
     name: "Center for Global Education at USIL",
     city: "Lima, Peru",
     region: "Latin America",
-    lat: -12.0851,
-    lng: -76.947,
+    // USIL main campus, Av. La Fontana 550, La Molina.
+    lat: -12.073,
+    lng: -76.9517,
     photo: "campuses/usil-peru.png",
     tagline: "A global classroom in Lima.",
     description:
@@ -520,8 +525,10 @@ export const CAMPUSES: Campus[] = [
     name: "American College in Spain",
     city: "Marbella, Spain",
     region: "Global Campuses",
-    lat: 36.5101,
-    lng: -4.8856,
+    // La Alzambra, Puerto Banús (Nueva Andalucía); prior value was Marbella
+    // town center, ~6 km east.
+    lat: 36.4875,
+    lng: -4.9525,
     photo: "campuses/spain.png",
     tagline: "An American degree on the Costa del Sol.",
     description:
@@ -563,8 +570,10 @@ export const CAMPUSES: Campus[] = [
     name: "Sampoerna University",
     city: "Jakarta, Indonesia",
     region: "Global Campuses",
-    lat: -6.2241,
-    lng: 106.813,
+    // L'Avenue building, Jl. Raya Pasar Minggu Kav. 16, Pancoran (South
+    // Jakarta); prior value sat ~5 km NW in central Jakarta.
+    lat: -6.2523,
+    lng: 106.8473,
     photo: "campuses/sampoerna-indonesia.png",
     tagline: "American-accredited education in Indonesia.",
     description:
