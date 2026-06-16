@@ -860,6 +860,7 @@ export default function CampusMap() {
           camera={{ position: [0, 1.6, ORBIT_DISTANCE], fov: 45 }}
           gl={{ antialias: true }}
           dpr={[1, 2]}
+          aria-label="Interactive 3D globe of Keiser University's campuses"
         >
           <color attach="background" args={["#0b1c33"]} />
           {inTour && selected ? (
@@ -976,6 +977,7 @@ export default function CampusMap() {
               setFinderOpen((v) => !v);
             }}
             aria-pressed={finderOpen}
+            aria-label="Find a program"
             className={`flex items-center gap-2 rounded-full border p-2 text-sm font-semibold backdrop-blur transition sm:px-4 ${
               finderOpen || programQuery.trim()
                 ? "border-keiser-gold bg-keiser-gold/15 text-keiser-gold"
@@ -989,6 +991,8 @@ export default function CampusMap() {
           {/* Guided-tour toggle */}
           <button
             onClick={tourPlaying ? stopTour : startTour}
+            aria-pressed={tourPlaying}
+            aria-label={tourPlaying ? "Pause guided tour" : "Start guided tour"}
             className="flex items-center gap-2 rounded-full border border-keiser-gold/40 bg-keiser-navy/70 p-2 text-sm font-semibold text-keiser-gold backdrop-blur transition hover:bg-keiser-gold/15 sm:px-4"
           >
             {tourPlaying ? <PauseIcon /> : <PlayIcon />}
@@ -1000,6 +1004,7 @@ export default function CampusMap() {
             <button
               onClick={() => setAiOpen((v) => !v)}
               aria-pressed={aiOpen}
+              aria-label="Ask the guide"
               className={`flex items-center gap-2 rounded-full border p-2 text-sm font-semibold backdrop-blur transition sm:px-4 ${
                 aiOpen
                   ? "border-keiser-gold bg-keiser-gold/15 text-keiser-gold"
@@ -1032,6 +1037,7 @@ export default function CampusMap() {
               <button
                 key={r}
                 onClick={() => setRegionFilter(r)}
+                aria-pressed={regionFilter === r}
                 className={`rounded-full px-3 py-1 text-xs font-semibold transition ${
                   regionFilter === r
                     ? "bg-keiser-gold text-keiser-navy"
@@ -1202,23 +1208,24 @@ export default function CampusMap() {
 
       {/* ---- In-tour back button ---- */}
       {inTour && selected && (
-        <div className="absolute bottom-6 left-1/2 flex -translate-x-1/2 gap-3">
+        <div className="absolute bottom-5 left-1/2 flex max-w-[94vw] -translate-x-1/2 flex-wrap items-center justify-center gap-2 sm:bottom-6 sm:gap-3">
           <button
             onClick={() => setInTour(false)}
-            className="rounded-full border border-keiser-gold/40 bg-keiser-navy/80 px-5 py-2.5 text-sm font-semibold text-keiser-gold backdrop-blur transition hover:bg-keiser-gold/15"
+            className="rounded-full border border-keiser-gold/40 bg-keiser-navy/80 px-4 py-2.5 text-sm font-semibold text-keiser-gold backdrop-blur transition hover:bg-keiser-gold/15 sm:px-5"
           >
-            ← Back to globe
+            ← <span className="sm:hidden">Back</span>
+            <span className="hidden sm:inline">Back to globe</span>
           </button>
           <button
             onClick={() => setShareOpen(true)}
             aria-label="Share this campus"
-            className="flex items-center gap-2 rounded-full border border-keiser-gold/40 bg-keiser-navy/80 px-5 py-2.5 text-sm font-semibold text-keiser-gold backdrop-blur transition hover:bg-keiser-gold/15"
+            className="flex items-center gap-2 rounded-full border border-keiser-gold/40 bg-keiser-navy/80 px-4 py-2.5 text-sm font-semibold text-keiser-gold backdrop-blur transition hover:bg-keiser-gold/15 sm:px-5"
           >
-            <ShareIcon /> Share
+            <ShareIcon /> <span className="hidden sm:inline">Share</span>
           </button>
           <button
             onClick={() => setLeadOpen(true)}
-            className="rounded-full bg-keiser-gold px-5 py-2.5 text-sm font-bold text-keiser-navy transition hover:bg-keiser-flame"
+            className="rounded-full bg-keiser-gold px-4 py-2.5 text-sm font-bold text-keiser-navy transition hover:bg-keiser-flame sm:px-5"
           >
             Request info →
           </button>
