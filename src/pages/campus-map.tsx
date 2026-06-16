@@ -9,6 +9,8 @@ const CampusTilesOverlay = lazy(() => import("./campus-tiles"));
 const AIConcierge = lazy(() => import("./ai-concierge"));
 // Admissions inquiry modal — lazy; only loads when "Request info" is opened.
 const LeadForm = lazy(() => import("../components/lead-form"));
+// Program finder panel — lazy; only loads when "Find a program" is opened.
+const ProgramFinder = lazy(() => import("../components/program-finder"));
 // A Google Maps key (Map Tiles API) enables the photoreal 3D campus tour;
 // without it we fall back to the stylized 3D scene. Kept local so the heavy
 // tiles module stays out of the main chunk.
@@ -27,6 +29,7 @@ import {
 } from "../lib/campus-data";
 import { GLOBE_RADIUS, arcCurvePoints, arcPoint, latLngToVec3 } from "../lib/globe-utils";
 import { speak, speechSupported, stopSpeaking } from "../lib/narration";
+import { matchCampuses } from "../lib/program-search";
 import { GOOGLE_KEY, useResolvedLatLng, useStreetViewAvailable } from "../lib/campus-location";
 
 // Base-aware asset URL (works under the GitHub Pages project sub-path).
@@ -207,6 +210,7 @@ function CampusPins({
   selectedId,
   hoveredId,
   showCity,
+  matchedIds,
   onHover,
   onSelect,
   globeRef,
@@ -215,6 +219,8 @@ function CampusPins({
   selectedId: string | null;
   hoveredId: string | null;
   showCity: boolean;
+  /** When a program search is active, the matching campus ids (else null). */
+  matchedIds: Set<string> | null;
   onHover: (id: string | null) => void;
   onSelect: (campus: Campus) => void;
   globeRef: React.MutableRefObject<THREE.Mesh | null>;
@@ -224,9 +230,14 @@ function CampusPins({
       {campuses.map((campus) => {
         const pos = latLngToVec3(campus.lat, campus.lng, GLOBE_RADIUS * 1.02);
         const active = selectedId === campus.id || hoveredId === campus.id;
+        // Program-search state: with a query active, matched pins glow gold and
+        // non-matches fade back so the answer reads at a glance.
+        const matched = matchedIds ? matchedIds.has(campus.id) : false;
+        const dimmed = matchedIds ? !matched && !active : false;
         // Declutter: at the wide view show just a dot; reveal the flag marker
-        // when zoomed in, hovered, or selected.
-        const showMarker = active || showCity;
+        // when zoomed in, hovered, selected, or matched by a search.
+        const showMarker = (active || showCity || matched) && !dimmed;
+        const highlight = active || matched;
         return (
           <group key={campus.id} position={pos}>
             {/* Larger invisible hit target (easy to tap on mobile). */}
@@ -249,12 +260,16 @@ function CampusPins({
               <meshBasicMaterial transparent opacity={0} depthWrite={false} />
             </mesh>
             {/* Visible location dot. */}
-            <mesh scale={active ? 1.9 : 1}>
+            <mesh scale={active ? 1.9 : matched ? 1.6 : dimmed ? 0.7 : 1}>
               <sphereGeometry args={[0.02, 12, 12]} />
-              <meshBasicMaterial color={active ? FLAME_GOLD : "#ffffff"} />
+              <meshBasicMaterial
+                color={highlight ? FLAME_GOLD : "#ffffff"}
+                transparent
+                opacity={dimmed ? 0.3 : 1}
+              />
             </mesh>
             {/* Flag + city marker — constant readable size (no distance scaling),
-                only shown when zoomed in / hovered / selected. */}
+                only shown when zoomed in / hovered / selected / matched. */}
             {showMarker && (
               <Html
                 position={[0, 0.06, 0]}
@@ -265,7 +280,7 @@ function CampusPins({
               >
                 <div
                   className={`flex -translate-y-2 items-center gap-1 whitespace-nowrap rounded-full border px-1.5 py-0.5 shadow-lg ${
-                    active
+                    highlight
                       ? "border-keiser-gold bg-keiser-gold text-keiser-navy"
                       : "border-white/25 bg-keiser-navy/90 text-white"
                   }`}
@@ -577,6 +592,7 @@ function GlobeScene({
   selectedId,
   hoveredId,
   target,
+  matchedIds,
   controlsRef,
   onHover,
   onSelect,
@@ -585,6 +601,7 @@ function GlobeScene({
   selectedId: string | null;
   hoveredId: string | null;
   target: Campus | null;
+  matchedIds: Set<string> | null;
   controlsRef: React.MutableRefObject<OrbitControlsImpl | null>;
   onHover: (id: string | null) => void;
   onSelect: (campus: Campus) => void;
@@ -620,6 +637,7 @@ function GlobeScene({
           selectedId={selectedId}
           hoveredId={hoveredId}
           showCity={zoomedIn}
+          matchedIds={matchedIds}
           onHover={onHover}
           onSelect={onSelect}
           globeRef={globeRef}
@@ -643,11 +661,21 @@ export default function CampusMap() {
   const [listOpen, setListOpen] = useState(false); // mobile campus-list drawer
   const [aiOpen, setAiOpen] = useState(false); // AI concierge panel
   const [leadOpen, setLeadOpen] = useState(false); // "Request info" inquiry modal
+  const [finderOpen, setFinderOpen] = useState(false); // program finder panel
+  const [programQuery, setProgramQuery] = useState(""); // active program search
   const controlsRef = useRef<OrbitControlsImpl | null>(null);
 
   const visibleCampuses = useMemo(
     () => (regionFilter === "All" ? CAMPUSES : CAMPUSES.filter((c) => c.region === regionFilter)),
     [regionFilter],
+  );
+
+  // Program search: ids that offer the queried field (null when no query), plus
+  // the matching campuses in dataset order for the finder's results list.
+  const matchedIds = useMemo(() => matchCampuses(programQuery), [programQuery]);
+  const programResults = useMemo(
+    () => (matchedIds ? CAMPUSES.filter((c) => matchedIds.has(c.id)) : []),
+    [matchedIds],
   );
 
   const selected = useMemo(
@@ -671,6 +699,14 @@ export default function CampusMap() {
     setTourPlaying(false);
     setListOpen(false); // close the mobile drawer after picking
     handleSelect(campus);
+  }
+
+  // Selecting from the program finder flies to the campus; on mobile the panel
+  // covers the globe, so collapse it there (but keep it open on desktop so the
+  // prospect can keep browsing matches).
+  function handleFinderSelect(campus: Campus) {
+    handleManualSelect(campus);
+    if (window.matchMedia("(max-width: 639px)").matches) setFinderOpen(false);
   }
 
   function closePanel() {
@@ -790,6 +826,7 @@ export default function CampusMap() {
                 selectedId={selectedId}
                 hoveredId={hoveredId}
                 target={selected}
+                matchedIds={matchedIds}
                 controlsRef={controlsRef}
                 onHover={setHoveredId}
                 onSelect={handleManualSelect}
@@ -837,7 +874,10 @@ export default function CampusMap() {
           {/* Campuses drawer toggle (mobile only) */}
           {!inTour && (
             <button
-              onClick={() => setListOpen((v) => !v)}
+              onClick={() => {
+                setFinderOpen(false);
+                setListOpen((v) => !v);
+              }}
               aria-label="Browse campuses"
               className="flex items-center rounded-full border border-keiser-gold/40 bg-keiser-navy/70 p-2 text-keiser-gold backdrop-blur transition hover:bg-keiser-gold/15 sm:hidden"
             >
@@ -861,6 +901,23 @@ export default function CampusMap() {
               <span className="hidden sm:inline">{narrate ? "Voice on" : "Voice off"}</span>
             </button>
           )}
+
+          {/* Program finder toggle */}
+          <button
+            onClick={() => {
+              setListOpen(false);
+              setFinderOpen((v) => !v);
+            }}
+            aria-pressed={finderOpen}
+            className={`flex items-center gap-2 rounded-full border p-2 text-sm font-semibold backdrop-blur transition sm:px-4 ${
+              finderOpen || programQuery.trim()
+                ? "border-keiser-gold bg-keiser-gold/15 text-keiser-gold"
+                : "border-keiser-gold/40 bg-keiser-navy/70 text-keiser-gold hover:bg-keiser-gold/15"
+            }`}
+          >
+            <SearchIcon />
+            <span className="hidden sm:inline">Find a program</span>
+          </button>
 
           {/* Guided-tour toggle */}
           <button
@@ -890,14 +947,14 @@ export default function CampusMap() {
       </header>
 
       {/* ---- Region filter + campus list (left rail; drawer on mobile) ---- */}
-      {!inTour && listOpen && (
+      {!inTour && !finderOpen && listOpen && (
         <button
           aria-label="Close campus list"
           onClick={() => setListOpen(false)}
           className="absolute inset-0 z-20 bg-black/50 sm:hidden"
         />
       )}
-      {!inTour && (
+      {!inTour && !finderOpen && (
         <aside
           className={`absolute bottom-24 left-3 top-20 z-30 w-64 flex-col gap-3 sm:bottom-28 sm:left-6 sm:top-24 sm:flex ${
             listOpen ? "flex" : "hidden"
@@ -940,6 +997,52 @@ export default function CampusMap() {
             ))}
           </div>
         </aside>
+      )}
+
+      {/* ---- Program finder (left panel; drawer on mobile) ---- */}
+      {!inTour && finderOpen && (
+        <>
+          <button
+            aria-label="Close program finder"
+            onClick={() => setFinderOpen(false)}
+            className="absolute inset-0 z-30 bg-black/50 sm:hidden"
+          />
+          <aside className="absolute bottom-24 left-3 top-20 z-40 w-[min(88vw,21rem)] animate-fade-in sm:bottom-28 sm:left-6 sm:top-24">
+            <Suspense fallback={null}>
+              <ProgramFinder
+                query={programQuery}
+                results={programResults}
+                selectedId={selectedId}
+                onQuery={setProgramQuery}
+                onSelect={handleFinderSelect}
+                onHover={setHoveredId}
+                onClose={() => setFinderOpen(false)}
+              />
+            </Suspense>
+          </aside>
+        </>
+      )}
+
+      {/* ---- Active program-filter pill (when the finder is collapsed) ---- */}
+      {!inTour && !finderOpen && programQuery.trim() && (
+        <div className="absolute left-1/2 top-16 z-30 -translate-x-1/2 animate-fade-in sm:top-20">
+          <div className="flex items-center gap-1.5 rounded-full border border-keiser-gold/40 bg-keiser-navy/85 py-1.5 pl-3.5 pr-1.5 shadow-2xl backdrop-blur">
+            <button
+              onClick={() => setFinderOpen(true)}
+              className="text-xs font-semibold text-keiser-gold"
+            >
+              {programResults.length} {programResults.length === 1 ? "campus" : "campuses"} ·{" "}
+              <span className="text-white">“{programQuery.trim()}”</span>
+            </button>
+            <button
+              onClick={() => setProgramQuery("")}
+              aria-label="Clear program filter"
+              className="rounded-full bg-white/10 p-1 text-slate-200 transition hover:bg-white/20"
+            >
+              <CloseIcon />
+            </button>
+          </div>
+        </div>
       )}
 
       {/* ---- Campus info / admissions panel (right) ---- */}
@@ -1270,6 +1373,14 @@ function PlayIcon() {
   return (
     <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
       <path d="M8 5v14l11-7z" />
+    </svg>
+  );
+}
+function SearchIcon() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+      <circle cx="11" cy="11" r="7" />
+      <path d="m21 21-4.3-4.3" />
     </svg>
   );
 }
