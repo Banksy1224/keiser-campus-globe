@@ -7,6 +7,8 @@ import { Html, OrbitControls, Stars, useTexture } from "@react-three/drei";
 const CampusTilesOverlay = lazy(() => import("./campus-tiles"));
 // AI concierge chat — lazy; only loads when opened.
 const AIConcierge = lazy(() => import("./ai-concierge"));
+// Admissions inquiry modal — lazy; only loads when "Request info" is opened.
+const LeadForm = lazy(() => import("../components/lead-form"));
 // A Google Maps key (Map Tiles API) enables the photoreal 3D campus tour;
 // without it we fall back to the stylized 3D scene. Kept local so the heavy
 // tiles module stays out of the main chunk.
@@ -640,6 +642,7 @@ export default function CampusMap() {
   const [narrate, setNarrate] = useState(speechSupported()); // spoken tour guide
   const [listOpen, setListOpen] = useState(false); // mobile campus-list drawer
   const [aiOpen, setAiOpen] = useState(false); // AI concierge panel
+  const [leadOpen, setLeadOpen] = useState(false); // "Request info" inquiry modal
   const controlsRef = useRef<OrbitControlsImpl | null>(null);
 
   const visibleCampuses = useMemo(
@@ -814,6 +817,13 @@ export default function CampusMap() {
         </Suspense>
       )}
 
+      {/* ---- Admissions inquiry modal ---- */}
+      {leadOpen && (
+        <Suspense fallback={null}>
+          <LeadForm campus={selected} onClose={() => setLeadOpen(false)} />
+        </Suspense>
+      )}
+
       {/* ---- Top bar ---- */}
       <header className="pointer-events-none absolute inset-x-0 top-0 flex items-start justify-between gap-2 p-3 sm:p-6">
         <div className="pointer-events-auto min-w-0">
@@ -984,6 +994,12 @@ export default function CampusMap() {
               >
                 Enter 3D campus tour →
               </button>
+              <button
+                onClick={() => setLeadOpen(true)}
+                className="w-full rounded-xl border border-keiser-gold/50 py-3 text-sm font-bold text-keiser-gold transition hover:bg-keiser-gold/15"
+              >
+                Request info →
+              </button>
               {selected.virtualTour && (
                 <a
                   href={selected.virtualTour}
@@ -1008,7 +1024,10 @@ export default function CampusMap() {
           >
             ← Back to globe
           </button>
-          <button className="rounded-full bg-keiser-gold px-5 py-2.5 text-sm font-bold text-keiser-navy transition hover:bg-keiser-flame">
+          <button
+            onClick={() => setLeadOpen(true)}
+            className="rounded-full bg-keiser-gold px-5 py-2.5 text-sm font-bold text-keiser-navy transition hover:bg-keiser-flame"
+          >
             Request info →
           </button>
         </div>
