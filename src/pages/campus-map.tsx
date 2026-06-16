@@ -31,7 +31,15 @@ import {
 } from "../lib/campus-data";
 import { GLOBE_RADIUS, arcCurvePoints, arcPoint, latLngToVec3 } from "../lib/globe-utils";
 import { speak, speechSupported, stopSpeaking } from "../lib/narration";
-import { matchCampuses } from "../lib/program-search";
+import {
+  DEGREE_LEVELS,
+  EMPTY_FILTER,
+  describeFilter,
+  filterIsActive,
+  matchCampuses,
+  type DegreeLevel,
+  type ProgramFilter,
+} from "../lib/program-search";
 import { readShareParams, shareUrlFor, syncShareUrl } from "../lib/share";
 import { GOOGLE_KEY, useResolvedLatLng, useStreetViewAvailable } from "../lib/campus-location";
 
@@ -665,8 +673,10 @@ export default function CampusMap() {
   const [aiOpen, setAiOpen] = useState(false); // AI concierge panel
   const [leadOpen, setLeadOpen] = useState(false); // "Request info" inquiry modal
   const [finderOpen, setFinderOpen] = useState(false); // program finder panel
-  const [programQuery, setProgramQuery] = useState(""); // active program search
+  const [programFilter, setProgramFilter] = useState<ProgramFilter>(EMPTY_FILTER);
   const [shareOpen, setShareOpen] = useState(false); // share sheet
+  const updateFilter = (patch: Partial<ProgramFilter>) =>
+    setProgramFilter((f) => ({ ...f, ...patch }));
   const controlsRef = useRef<OrbitControlsImpl | null>(null);
 
   const visibleCampuses = useMemo(
@@ -676,7 +686,7 @@ export default function CampusMap() {
 
   // Program search: ids that offer the queried field (null when no query), plus
   // the matching campuses in dataset order for the finder's results list.
-  const matchedIds = useMemo(() => matchCampuses(programQuery), [programQuery]);
+  const matchedIds = useMemo(() => matchCampuses(programFilter), [programFilter]);
   const programResults = useMemo(
     () => (matchedIds ? CAMPUSES.filter((c) => matchedIds.has(c.id)) : []),
     [matchedIds],
@@ -690,7 +700,14 @@ export default function CampusMap() {
       setSelectedId(s.campusId);
       if (s.tour) setInTour(true);
     }
-    if (s.program) setProgramQuery(s.program);
+    const level =
+      s.level && (DEGREE_LEVELS as string[]).includes(s.level) ? (s.level as DegreeLevel) : null;
+    const loaded: ProgramFilter = {
+      text: s.program ?? "",
+      discipline: s.discipline ?? null,
+      level,
+    };
+    if (filterIsActive(loaded)) setProgramFilter(loaded);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -702,8 +719,14 @@ export default function CampusMap() {
       urlInitialized.current = true;
       return;
     }
-    syncShareUrl({ campusId: selectedId, program: programQuery, tour: inTour });
-  }, [selectedId, programQuery, inTour]);
+    syncShareUrl({
+      campusId: selectedId,
+      program: programFilter.text,
+      discipline: programFilter.discipline,
+      level: programFilter.level,
+      tour: inTour,
+    });
+  }, [selectedId, programFilter, inTour]);
 
   const selected = useMemo(
     () => CAMPUSES.find((c) => c.id === selectedId) ?? null,
@@ -714,7 +737,9 @@ export default function CampusMap() {
   const shareContent = useMemo(() => {
     const url = shareUrlFor({
       campusId: selectedId,
-      program: programQuery.trim() || null,
+      program: programFilter.text.trim() || null,
+      discipline: programFilter.discipline,
+      level: programFilter.level,
       tour: inTour,
     });
     if (selected) {
@@ -724,11 +749,12 @@ export default function CampusMap() {
         text: `${selected.name} (${selected.city}) — “${selected.tagline}” Explore it on Keiser's interactive campus globe.`,
       };
     }
-    if (programQuery.trim()) {
+    if (filterIsActive(programFilter)) {
+      const label = describeFilter(programFilter);
       return {
         url,
-        title: `${programQuery.trim()} at Keiser University`,
-        text: `See which Keiser University campuses offer ${programQuery.trim()}, on the interactive campus globe.`,
+        title: `${label} — Keiser University`,
+        text: `See which Keiser University campuses offer ${label}, on the interactive campus globe.`,
       };
     }
     return {
@@ -736,7 +762,7 @@ export default function CampusMap() {
       title: "Keiser University — Campus Globe",
       text: "Explore Keiser University's worldwide campuses on an interactive 3D globe.",
     };
-  }, [selected, selectedId, programQuery, inTour]);
+  }, [selected, selectedId, programFilter, inTour]);
 
   // The tour walks the full roster in dataset order regardless of filter.
   const tourOrder = CAMPUSES;
@@ -979,7 +1005,7 @@ export default function CampusMap() {
             aria-pressed={finderOpen}
             aria-label="Find a program"
             className={`flex items-center gap-2 rounded-full border p-2 text-sm font-semibold backdrop-blur transition sm:px-4 ${
-              finderOpen || programQuery.trim()
+              finderOpen || filterIsActive(programFilter)
                 ? "border-keiser-gold bg-keiser-gold/15 text-keiser-gold"
                 : "border-keiser-gold/40 bg-keiser-navy/70 text-keiser-gold hover:bg-keiser-gold/15"
             }`}
@@ -1083,10 +1109,10 @@ export default function CampusMap() {
           <aside className="absolute bottom-24 left-3 top-20 z-40 w-[min(88vw,21rem)] animate-fade-in sm:bottom-28 sm:left-6 sm:top-24">
             <Suspense fallback={null}>
               <ProgramFinder
-                query={programQuery}
+                filter={programFilter}
                 results={programResults}
                 selectedId={selectedId}
-                onQuery={setProgramQuery}
+                onChange={updateFilter}
                 onSelect={handleFinderSelect}
                 onHover={setHoveredId}
                 onClose={() => setFinderOpen(false)}
@@ -1097,27 +1123,27 @@ export default function CampusMap() {
       )}
 
       {/* ---- Active program-filter pill (when the finder is collapsed) ---- */}
-      {!inTour && !finderOpen && programQuery.trim() && (
-        <div className="absolute left-1/2 top-16 z-30 -translate-x-1/2 animate-fade-in sm:top-20">
+      {!inTour && !finderOpen && filterIsActive(programFilter) && (
+        <div className="absolute left-1/2 top-16 z-30 w-[min(92vw,28rem)] -translate-x-1/2 animate-fade-in sm:top-20">
           <div className="flex items-center gap-1.5 rounded-full border border-keiser-gold/40 bg-keiser-navy/85 py-1.5 pl-3.5 pr-1.5 shadow-2xl backdrop-blur">
             <button
               onClick={() => setFinderOpen(true)}
-              className="text-xs font-semibold text-keiser-gold"
+              className="min-w-0 flex-1 truncate text-left text-xs font-semibold text-keiser-gold"
             >
               {programResults.length} {programResults.length === 1 ? "campus" : "campuses"} ·{" "}
-              <span className="text-white">“{programQuery.trim()}”</span>
+              <span className="text-white">{describeFilter(programFilter)}</span>
             </button>
             <button
               onClick={() => setShareOpen(true)}
               aria-label="Share this search"
-              className="rounded-full bg-white/10 p-1.5 text-keiser-gold transition hover:bg-white/20"
+              className="shrink-0 rounded-full bg-white/10 p-1.5 text-keiser-gold transition hover:bg-white/20"
             >
               <ShareIcon />
             </button>
             <button
-              onClick={() => setProgramQuery("")}
+              onClick={() => setProgramFilter(EMPTY_FILTER)}
               aria-label="Clear program filter"
-              className="rounded-full bg-white/10 p-1 text-slate-200 transition hover:bg-white/20"
+              className="shrink-0 rounded-full bg-white/10 p-1 text-slate-200 transition hover:bg-white/20"
             >
               <CloseIcon />
             </button>
