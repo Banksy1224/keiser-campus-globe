@@ -45,7 +45,7 @@ const ADDRESSES: Record<string, string> = {
   // published street address).
   "latin-american": "Gasolinera UNO, 2 c. al Sur, San Marcos, Carazo 45000, Nicaragua",
   "managua-language-center": "Offiplaza San Dionisio, Pista Suburbana, Managua, Nicaragua",
-  "el-salvador": "Torre Milenium, San Salvador, El Salvador",
+  "el-salvador": "Torre Millennium, Paseo General Escalón 3675, Colonia Escalón, San Salvador, El Salvador",
   "santa-cruz": "Calle Los Pinos 473, Barrio Sirari, Santa Cruz de la Sierra, Bolivia",
   "ista-ecuador": "Balsas 416, Urdesa Central, Guayaquil, Ecuador",
   "usil-peru": "Av. La Fontana 550, La Molina, Lima, Peru",
