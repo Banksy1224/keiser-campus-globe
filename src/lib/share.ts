@@ -7,7 +7,12 @@
 
 export interface ShareState {
   campusId?: string | null;
+  /** Free-text program search. */
   program?: string | null;
+  /** Academic discipline filter. */
+  discipline?: string | null;
+  /** Degree-type filter. */
+  level?: string | null;
   tour?: boolean;
 }
 
@@ -18,6 +23,8 @@ export function readShareParams(): ShareState {
   return {
     campusId: p.get("campus"),
     program: p.get("program"),
+    discipline: p.get("discipline"),
+    level: p.get("level"),
     tour: tour === "1" || tour === "3d",
   };
 }
@@ -28,6 +35,8 @@ export function shareUrlFor(state: ShareState): string {
   const p = new URLSearchParams();
   if (state.campusId) p.set("campus", state.campusId);
   if (state.program && state.program.trim()) p.set("program", state.program.trim());
+  if (state.discipline) p.set("discipline", state.discipline);
+  if (state.level) p.set("level", state.level);
   if (state.tour && state.campusId) p.set("tour", "1");
   const qs = p.toString();
   return qs ? `${base}?${qs}` : base;

@@ -1,155 +1,206 @@
-// Program finder — turns a free-text query (or a quick-pick "field of study"
-// chip) into the set of campuses that offer it, so prospects can search by what
-// they want to study and have the globe highlight + fly to matching campuses.
+// Program finder — lets prospects filter campuses by Keiser University's
+// official academic disciplines (areas of study) and degree types, sourced from
+// keiseruniversity.edu/programs/all-programs.
 //
-// Campus `programs` strings are written for humans and are deliberately
-// inconsistent ("Nursing (BSN)", "MBA / DBA", "Business (BBA/MBA)"), so all
-// matching is done as case-insensitive substring tests against a campus's
-// searchable text. Curated FIELDS and SYNONYMS bridge the gap between how a
-// student phrases things ("computer science", "doctorate", "law") and how the
-// dataset spells them.
+// Rather than guess a program's discipline from substrings (which mis-filed
+// "Radiologic Technology" under I.T. and matched "MBA" inside "Mumbai"), every
+// program string in the dataset is mapped explicitly to its discipline(s) and
+// degree level(s). Matching is therefore exact and every result shows the real
+// programs that matched.
 
 import { CAMPUSES, type Campus } from "./campus-data";
 
-export interface Field {
-  /** Student-facing label shown on the quick-pick chip. */
-  label: string;
-  /** Lowercase substrings; a campus matches the field if its text contains any. */
-  keywords: string[];
+export type DegreeLevel = "Associate" | "Bachelor's" | "Master's" | "Doctoral";
+
+// Degree levels in the order Keiser lists them.
+export const DEGREE_LEVELS: DegreeLevel[] = ["Associate", "Bachelor's", "Master's", "Doctoral"];
+
+interface ProgramMeta {
+  disciplines: string[];
+  levels: DegreeLevel[];
 }
 
-// Quick-pick fields of study, ordered roughly by how many campuses offer them.
-export const FIELDS: Field[] = [
-  { label: "Nursing", keywords: ["nursing", "bsn"] },
-  {
-    label: "Health Sciences",
-    keywords: [
-      "health",
-      "medical",
-      "radiolog",
-      "sonograph",
-      "cardiovascular",
-      "occupational therapy",
-      "physical therap",
-      "biomedical",
-      "diagnostic",
-    ],
-  },
-  {
-    label: "Business",
-    keywords: [
-      "business",
-      "mba",
-      "dba",
-      "bba",
-      "accounting",
-      "marketing",
-      "commerce",
-      "management",
-    ],
-  },
-  {
-    label: "Technology",
-    keywords: ["information technology", "engineering", "technology"],
-  },
-  { label: "Psychology", keywords: ["psychology", "psy.d"] },
-  { label: "Criminal Justice & Legal", keywords: ["criminal justice", "legal"] },
-  { label: "Hospitality & Culinary", keywords: ["hospitality", "culinary", "tourism"] },
-  {
-    label: "Graduate & Doctoral",
-    keywords: ["mba", "dba", "ed.d", "psy.d", "graduate", "master", "doctora"],
-  },
-  { label: "English & Pathways", keywords: ["english", "academic preparation", "pathway"] },
-];
+// Maps every program string used in campus-data.ts to Keiser's academic
+// disciplines and the degree level(s) the listed program implies. Disciplines
+// use Keiser's "areas of study" names; "English & Pathways" covers the
+// international language centers' ESL / college-prep tracks (non-degree).
+const PROGRAM_INDEX: Record<string, ProgramMeta> = {
+  // Nursing
+  "Nursing (BSN)": { disciplines: ["Nursing"], levels: ["Bachelor's"] },
 
-// Maps the way students phrase things → substrings that exist in the dataset.
-// Keyed by a term the student might type; if the query contains the key, the
-// synonyms are added to the search.
-const SYNONYMS: Record<string, string[]> = {
-  it: ["information technology"],
-  "computer science": ["information technology"],
-  computing: ["information technology"],
-  cyber: ["information technology"],
-  cybersecurity: ["information technology"],
-  rn: ["nursing"],
-  nurse: ["nursing"],
-  doctor: ["dba", "ed.d", "psy.d", "doctora"],
-  doctorate: ["dba", "ed.d", "psy.d", "doctora"],
-  phd: ["dba", "ed.d", "psy.d", "doctora"],
-  masters: ["mba", "master"],
-  graduate: ["mba", "dba", "ed.d", "psy.d", "graduate", "master"],
-  law: ["legal"],
-  lawyer: ["legal"],
-  sports: ["sport"],
-  chef: ["culinary"],
-  cooking: ["culinary"],
-  hotel: ["hospitality"],
-  travel: ["tourism", "hospitality"],
-  finance: ["accounting", "business"],
+  // Health Sciences (clinical / allied health)
+  "Biomedical Sciences": { disciplines: ["Health Sciences"], levels: ["Bachelor's"] },
+  "Health Sciences": { disciplines: ["Health Sciences"], levels: ["Master's", "Doctoral"] },
+  "Radiologic Technology": { disciplines: ["Health Sciences"], levels: ["Associate"] },
+  "Diagnostic Medical Sonography": { disciplines: ["Health Sciences"], levels: ["Bachelor's"] },
+  "Cardiovascular Technology": { disciplines: ["Health Sciences"], levels: ["Associate"] },
+  "Medical Assisting": { disciplines: ["Health Sciences"], levels: ["Associate"] },
+  "Occupational Therapy Assistant": { disciplines: ["Health Sciences"], levels: ["Associate"] },
+  "Physical Therapist Assistant": { disciplines: ["Health Sciences"], levels: ["Associate"] },
+
+  // Health Care (administration)
+  "Health Services Admin": { disciplines: ["Health Care"], levels: ["Bachelor's"] },
+  "Health Services Administration": { disciplines: ["Health Care"], levels: ["Bachelor's"] },
+
+  // Business / Accounting / Marketing
+  Business: { disciplines: ["Business"], levels: ["Bachelor's"] },
+  "Business Administration": { disciplines: ["Business"], levels: ["Bachelor's"] },
+  "International Business": { disciplines: ["Business"], levels: ["Bachelor's"] },
+  Commerce: { disciplines: ["Business"], levels: ["Bachelor's"] },
+  "Business (BBA)": { disciplines: ["Business"], levels: ["Bachelor's"] },
+  "Business (BBA/MBA)": { disciplines: ["Business"], levels: ["Bachelor's", "Master's"] },
+  "MBA / DBA": { disciplines: ["Business"], levels: ["Master's", "Doctoral"] },
+  Accounting: { disciplines: ["Accounting"], levels: ["Bachelor's"] },
+  Marketing: { disciplines: ["Marketing"], levels: ["Bachelor's"] },
+
+  // Information Technology / Engineering
+  "Information Technology": { disciplines: ["Information Technology"], levels: ["Bachelor's"] },
+  Engineering: { disciplines: ["Engineering"], levels: ["Bachelor's"] },
+  "Engineering Technology": { disciplines: ["Engineering"], levels: ["Bachelor's"] },
+
+  // Criminal Justice / Legal
+  "Criminal Justice": { disciplines: ["Criminal Justice"], levels: ["Bachelor's"] },
+  "Legal Studies": { disciplines: ["Legal Studies"], levels: ["Bachelor's"] },
+
+  // Psychology / Education
+  Psychology: { disciplines: ["Psychology"], levels: ["Bachelor's"] },
+  "Psychology (MS / Psy.D.)": { disciplines: ["Psychology"], levels: ["Master's", "Doctoral"] },
+  Education: { disciplines: ["Education"], levels: ["Bachelor's"] },
+  "Education (Ed.D.)": { disciplines: ["Education"], levels: ["Doctoral"] },
+
+  // Culinary / Hospitality / Sport / Communications
+  "Culinary Arts": { disciplines: ["Culinary"], levels: ["Associate"] },
+  "Hospitality Management": { disciplines: ["Hospitality Management"], levels: ["Bachelor's"] },
+  Tourism: { disciplines: ["Hospitality Management"], levels: ["Bachelor's"] },
+  "Sport Management": { disciplines: ["Sports Management"], levels: ["Bachelor's"] },
+  Communications: { disciplines: ["Communications"], levels: ["Bachelor's"] },
+
+  // International language centers (non-degree pathways)
+  "English Language": { disciplines: ["English & Pathways"], levels: [] },
+  "Academic Preparation": { disciplines: ["English & Pathways"], levels: [] },
+  "Pathway to Degree Programs": { disciplines: ["English & Pathways"], levels: [] },
 };
 
-/** Everything we search a campus against: name, tagline, and its programs. */
-export function campusSearchText(campus: Campus): string {
-  return [campus.name, campus.tagline, ...campus.programs].join(" • ").toLowerCase();
+// Student-phrasing → discipline, so free-text search still finds things by
+// common names that aren't the exact discipline label.
+const TEXT_SYNONYMS: Record<string, string[]> = {
+  it: ["information technology"],
+  "computer science": ["information technology"],
+  cyber: ["information technology"],
+  cybersecurity: ["information technology"],
+  tech: ["information technology", "engineering"],
+  nurse: ["nursing"],
+  rn: ["nursing"],
+  finance: ["accounting", "business"],
+  health: ["health sciences", "health care"],
+  medical: ["health sciences"],
+  law: ["legal studies", "criminal justice"],
+  lawyer: ["legal studies"],
+  chef: ["culinary"],
+  cooking: ["culinary"],
+  hotel: ["hospitality management"],
+  travel: ["hospitality management"],
+  sport: ["sports management"],
+  sports: ["sports management"],
+  teaching: ["education"],
+  teacher: ["education"],
+  english: ["english & pathways"],
+  esl: ["english & pathways"],
+};
+
+export interface ProgramFilter {
+  text: string;
+  discipline: string | null;
+  level: DegreeLevel | null;
 }
 
-/** True if `needle` appears in `haystack` as a whole word/phrase (not mid-word),
- *  so short terms like "it" don't match inside "hospitality". */
-function containsWord(haystack: string, needle: string): boolean {
-  const escaped = needle.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  return new RegExp(`(^|[^a-z0-9])${escaped}([^a-z0-9]|$)`).test(haystack);
+export const EMPTY_FILTER: ProgramFilter = { text: "", discipline: null, level: null };
+
+export function filterIsActive(f: ProgramFilter): boolean {
+  return Boolean(f.text.trim() || f.discipline || f.level);
 }
 
-/** Expand a raw query into the list of substrings to match against. */
-function expandQuery(query: string): string[] {
-  const q = query.trim().toLowerCase();
-  const keywords = new Set<string>();
-  if (q.length < 2) return [];
-  // Use the raw query as a substring keyword only when it's specific enough to
-  // be meaningful on its own (so "it" relies on the synonym below instead).
-  if (q.length >= 3) keywords.add(q);
+function metaFor(program: string): ProgramMeta {
+  return PROGRAM_INDEX[program] ?? { disciplines: [], levels: [] };
+}
 
-  // Expand to a field's curated keyword set when the query names the field
-  // itself (a chip click sends the exact label; typing "nursing" also matches
-  // the "Nursing" label). We deliberately require the *whole label* so a narrow
-  // word like "culinary" doesn't drag in the rest of "Hospitality & Culinary".
-  for (const field of FIELDS) {
-    if (containsWord(q, field.label.toLowerCase())) {
-      field.keywords.forEach((k) => keywords.add(k));
+/** Expand free-text into the substrings to test (raw + phrasing synonyms). */
+function textNeedles(text: string): string[] {
+  const t = text.trim().toLowerCase();
+  if (!t) return [];
+  const needles = new Set<string>([t]);
+  for (const [term, syns] of Object.entries(TEXT_SYNONYMS)) {
+    if (new RegExp(`(^|[^a-z0-9])${term}([^a-z0-9]|$)`).test(t)) {
+      syns.forEach((s) => needles.add(s));
     }
   }
+  return [...needles];
+}
 
-  // Apply student-phrasing synonyms, matched on whole words so "it" maps to
-  // information technology without firing inside unrelated words.
-  for (const [term, syns] of Object.entries(SYNONYMS)) {
-    if (containsWord(q, term)) syns.forEach((s) => keywords.add(s));
+/** Does a single program satisfy every active part of the filter? */
+function programMatches(program: string, f: ProgramFilter): boolean {
+  const meta = metaFor(program);
+  if (f.discipline && !meta.disciplines.includes(f.discipline)) return false;
+  if (f.level && !meta.levels.includes(f.level)) return false;
+  if (f.text.trim()) {
+    const hay = `${program} ${meta.disciplines.join(" ")}`.toLowerCase();
+    if (!textNeedles(f.text).some((n) => hay.includes(n))) return false;
   }
-
-  return [...keywords];
+  return true;
 }
 
 /**
- * Campus ids whose programs match the query. Returns `null` for an empty query
- * (meaning "no filter"), so callers can distinguish "show everything" from
- * "nothing matched" (an empty Set).
+ * Campus ids with at least one program matching the filter. Returns `null` when
+ * no filter is active (meaning "no filter"), so callers can tell that apart from
+ * an empty Set (a filter that matched nothing).
  */
-export function matchCampuses(query: string): Set<string> | null {
-  if (!query.trim()) return null;
-  const keywords = expandQuery(query);
+export function matchCampuses(f: ProgramFilter): Set<string> | null {
+  if (!filterIsActive(f)) return null;
   const ids = new Set<string>();
   for (const campus of CAMPUSES) {
-    const text = campusSearchText(campus);
-    if (keywords.some((k) => k && text.includes(k))) ids.add(campus.id);
+    if (campus.programs.some((p) => programMatches(p, f))) ids.add(campus.id);
   }
   return ids;
 }
 
-/** The specific program strings on a campus that match the query (for display). */
-export function matchingPrograms(campus: Campus, query: string): string[] {
-  if (!query.trim()) return [];
-  const keywords = expandQuery(query);
-  return campus.programs.filter((p) => {
-    const text = p.toLowerCase();
-    return keywords.some((k) => k && text.includes(k));
-  });
+/** The campus's programs that match the filter (for the result chips). */
+export function matchingPrograms(campus: Campus, f: ProgramFilter): string[] {
+  if (!filterIsActive(f)) return [];
+  return campus.programs.filter((p) => programMatches(p, f));
+}
+
+/** Disciplines present in the dataset, with how many campuses offer each,
+ *  ordered by reach then name — used to render the discipline chips. */
+export function availableDisciplines(): Array<{ label: string; count: number }> {
+  const counts = new Map<string, number>();
+  for (const campus of CAMPUSES) {
+    const seen = new Set<string>();
+    for (const p of campus.programs) {
+      for (const d of metaFor(p).disciplines) seen.add(d);
+    }
+    for (const d of seen) counts.set(d, (counts.get(d) ?? 0) + 1);
+  }
+  return [...counts.entries()]
+    .map(([label, count]) => ({ label, count }))
+    .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label));
+}
+
+/** Degree levels present in the dataset, in Keiser's order. */
+export function availableLevels(): DegreeLevel[] {
+  const present = new Set<DegreeLevel>();
+  for (const campus of CAMPUSES) {
+    for (const p of campus.programs) {
+      for (const l of metaFor(p).levels) present.add(l);
+    }
+  }
+  return DEGREE_LEVELS.filter((l) => present.has(l));
+}
+
+/** Short human label describing the active filter (for the collapsed pill). */
+export function describeFilter(f: ProgramFilter): string {
+  const parts: string[] = [];
+  if (f.discipline) parts.push(f.discipline);
+  if (f.level) parts.push(f.level);
+  if (f.text.trim()) parts.push(`“${f.text.trim()}”`);
+  return parts.join(" · ");
 }
