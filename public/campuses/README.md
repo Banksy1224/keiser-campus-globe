@@ -5,7 +5,7 @@ automatically as the hero image in that campus's info panel.
 
 | File name              | Campus                          |
 | ---------------------- | ------------------------------- |
-| `flagship.jpg`         | Flagship Residential Campus      |
+| `flagship.jpg`         | Flagship (`flagship-wpb`)        |
 | `fort-lauderdale.jpg`  | Fort Lauderdale Campus           |
 | `orlando.jpg`          | Orlando Campus                   |
 | `tampa.jpg`            | Tampa Campus                     |
@@ -19,16 +19,12 @@ automatically as the hero image in that campus's info panel.
 | `naples.jpg`           | Naples Campus                    |
 | `port-st-lucie.jpg`    | Port St. Lucie Campus            |
 | `new-port-richey.jpg`  | New Port Richey Campus           |
-| `latin-american.jpg`   | Latin American Campus (Nicaragua)|
-| `santa-cruz.jpg`       | International University of Santa Cruz (Bolivia) |
-| `ista-ecuador.jpg`     | Instituto Superior Técnico Americano (Ecuador) |
-| `usil-peru.jpg`        | Center for Global Education at USIL (Peru) |
-| `spain.jpg`            | American College in Spain        |
-| `garodia-india.jpg`    | Garodia International College (India) |
-| `sampoerna-indonesia.jpg` | Sampoerna University (Indonesia) |
-| `sri-lanka.jpg`        | American College of Higher Education (Sri Lanka) |
-| `vietnam.jpg`          | Keiser University Vietnam        |
-| `online.jpg`           | Keiser University Online         |
+| `latin-american.jpg`   | Latin American Campus (San Marcos)|
+| `managua-language-center.png` | Managua instructional site |
+| `el-salvador.jpg`      | San Salvador                     |
+| `china.jpg`            | Shanghai                         |
+| `e-campus.jpg`         | Online Division                  |
+| `online.jpg`           | Online Division (alternate)      |
 
 Provided so far: **Flagship** (`flagship.jpg` + `flagship-2.jpg` gallery +
 `flagship-aerial.webp` billboard), **Fort Lauderdale** (`fort-lauderdale.jpg`),

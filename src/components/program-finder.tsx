@@ -4,7 +4,7 @@
 // the left rail on desktop and slides up as a drawer on mobile.
 
 import { useEffect, useMemo, useRef } from "react";
-import { type Campus } from "../lib/campus-data";
+import { campusLocation, type Campus } from "../lib/campus-data";
 import {
   availableDisciplines,
   availableLevels,
@@ -167,7 +167,7 @@ export default function ProgramFinder({
                   }`}
                 >
                   <div className="text-sm font-semibold text-white">{campus.name}</div>
-                  <div className="text-[11px] text-slate-300/70">{campus.city}</div>
+                  <div className="text-[11px] text-slate-300/70">{campusLocation(campus)}</div>
                   {hits.length > 0 && (
                     <div className="mt-1.5 flex flex-wrap gap-1">
                       {hits.map((p) => (

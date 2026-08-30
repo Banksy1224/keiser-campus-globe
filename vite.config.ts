@@ -9,6 +9,11 @@ import react from "@vitejs/plugin-react";
 export default defineConfig(({ command }) => ({
   base: process.env.VITE_BASE ?? (command === "build" ? "/keiser-campus-globe/" : "/"),
   plugins: [react()],
+  server: {
+    proxy: {
+      "/api": "http://localhost:8787",
+    },
+  },
   build: {
     chunkSizeWarningLimit: 1200,
     rollupOptions: {

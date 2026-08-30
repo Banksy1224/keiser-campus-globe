@@ -14,7 +14,7 @@ export const TILES_ENABLED = Boolean(GOOGLE_KEY);
 // Verified precise coordinates (campus id → [lat, lng]). These render exactly
 // even without the Geocoding API enabled.
 const PRECISE: Record<string, [number, number]> = {
-  flagship: [26.7156, -80.1105], // 2600 N Military Trail, West Palm Beach
+  "flagship-wpb": [26.7156, -80.1105], // 2600 N Military Trail, West Palm Beach
   "fort-lauderdale": [26.186, -80.1638], // 1500 NW 49th St
   orlando: [28.5389, -81.3117], // 5600 Lake Underhill Rd
   jacksonville: [30.259, -81.6028], // 6430 Southpoint Pkwy
@@ -29,32 +29,22 @@ const PRECISE: Record<string, [number, number]> = {
 const ADDRESSES: Record<string, string> = {
   tampa: "5002 W Waters Ave, Tampa, FL 33634",
   miami: "2101 NW 117th Ave, Miami, FL 33172",
-  tallahassee: "1700 Halstead Blvd, Tallahassee, FL 32309",
+  tallahassee: "1700 Halstead Blvd, Building 2, Tallahassee, FL 32309",
   melbourne: "900 S Babcock St, Melbourne, FL 32901",
   naples: "3909 Tamiami Trail E, Naples, FL 34112",
   "port-st-lucie": "9400 SW Discovery Way, Port St. Lucie, FL 34987",
   "west-palm-beach": "2085 Vista Pkwy, West Palm Beach, FL 33411",
-  "e-campus": "1900 W Commercial Blvd, Fort Lauderdale, FL 33309",
+  "online-global": "1900 W Commercial Blvd, Suite 100, Fort Lauderdale, FL 33309",
   "pembroke-pines": "1640 SW 145th Ave, Pembroke Pines, FL 33027",
   "new-port-richey": "6300 US Hwy 19 N, New Port Richey, FL 34652",
   clearwater: "16120 US Hwy 19 N, Clearwater, FL 33764",
   "fort-myers": "9100 Forum Corporate Pkwy, Fort Myers, FL 33905",
-  "graduate-school": "1500 NW 49th St, Fort Lauderdale, FL 33309",
-
-  // International campuses & global partners (geocoded from the institution's
-  // published street address).
+  "graduate-school": "1600 W Commercial Blvd, Fort Lauderdale, FL 33309",
+  ocala: "1601 NE 25th Avenue, Suite 602, Ocala, FL 34470",
   "latin-american": "Gasolinera UNO, 2 c. al Sur, San Marcos, Carazo 45000, Nicaragua",
-  "managua-language-center": "Offiplaza San Dionisio, Pista Suburbana, Managua, Nicaragua",
-  "el-salvador": "Torre Millennium, Paseo General Escalón 3675, Colonia Escalón, San Salvador, El Salvador",
-  "santa-cruz": "Calle Los Pinos 473, Barrio Sirari, Santa Cruz de la Sierra, Bolivia",
-  "ista-ecuador": "Balsas 416, Urdesa Central, Guayaquil, Ecuador",
-  "usil-peru": "Av. La Fontana 550, La Molina, Lima, Peru",
-  spain: "CC La Alzambra, Urb. La Alzambra, 29660 Puerto Banús, Marbella, Málaga, Spain",
-  "garodia-india": "55, 90 Feet Road, Garodia Nagar, Ghatkopar East, Mumbai 400077, India",
-  "sampoerna-indonesia": "Jl. Raya Pasar Minggu Kav. 16, Pancoran, Jakarta 12780, Indonesia",
-  "sri-lanka": "502 Peradeniya Road, Kandy, Sri Lanka",
-  "vietnam-hue": "28 Nguyen Tri Phuong Street, Thuan Hoa Ward, Hue, Vietnam",
-  "vietnam-hcmc": "21 Le Quy Don, Vo Thi Sau Ward, District 3, Ho Chi Minh City, Vietnam",
+  managua: "Offiplaza San Dionisio, Pista Suburbana, Managua, Nicaragua",
+  "san-salvador": "Millennium Plaza, Paseo General Escalón 3675, San Salvador, El Salvador",
+  shanghai: "Guan Hai Lu Road No. 505, Pudong, Shanghai, China 201300",
 };
 
 async function geocode(query: string, key: string): Promise<{ lat: number; lng: number } | null> {
@@ -102,7 +92,7 @@ export function useResolvedLatLng(campus: Campus): { lat: number; lng: number } 
     if (!GOOGLE_KEY) return;
 
     let alive = true;
-    const query = ADDRESSES[campus.id] ?? `${campus.name}, ${campus.city}`;
+    const query = ADDRESSES[campus.id] ?? campus.address ?? `${campus.name}, ${campus.city}`;
     geocode(query, GOOGLE_KEY).then((r) => {
       if (r && alive) {
         setLoc(r);
@@ -116,7 +106,7 @@ export function useResolvedLatLng(campus: Campus): { lat: number; lng: number } 
     return () => {
       alive = false;
     };
-  }, [campus.id, campus.lat, campus.lng, campus.name, campus.city]);
+  }, [campus.id, campus.lat, campus.lng, campus.name, campus.city, campus.address]);
 
   return loc;
 }
