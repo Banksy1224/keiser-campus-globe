@@ -7,8 +7,8 @@ import { Html, OrbitControls, Stars, useTexture } from "@react-three/drei";
 const CampusTilesOverlay = lazy(() => import("./campus-tiles"));
 // AI concierge chat — lazy; only loads when opened.
 const AIConcierge = lazy(() => import("./ai-concierge"));
-// Admissions inquiry modal — lazy; only loads when "Request info" is opened.
-const LeadForm = lazy(() => import("../components/lead-form"));
+// Two-step TCPA RFI sheet — lazy; only loads when "Request info" is opened.
+const RfiSheet = lazy(() => import("../components/rfi-sheet"));
 // Program finder panel — lazy; only loads when "Find a program" is opened.
 const ProgramFinder = lazy(() => import("../components/program-finder"));
 // Share sheet — lazy; only loads when "Share" is opened.
@@ -22,13 +22,27 @@ const AI_ENABLED = Boolean(import.meta.env.VITE_AI_ENDPOINT);
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 import * as THREE from "three";
 import {
+  APPLY_URL,
   CAMPUSES,
   FLAME_GOLD,
+  REGION_LABELS,
   REGIONS,
+  campusById,
+  campusLocation,
+  campusPhones,
   getFlagship,
+  resolveCampusId,
+  telHref,
   type Campus,
   type CampusRegion,
 } from "../lib/campus-data";
+import {
+  PANEL_COPY,
+  defaultCampusPanelLanguage,
+  resolveCampusPanel,
+  type PanelLanguage,
+} from "../lib/campus-panel-copy";
+import { panelShowsLanguageToggle } from "../../shared/rfi";
 import { GLOBE_RADIUS, arcCurvePoints, arcPoint, latLngToVec3 } from "../lib/globe-utils";
 import { speak, speechSupported, stopSpeaking } from "../lib/narration";
 import {
@@ -55,23 +69,15 @@ const campusPhotoSrc = (campus: Campus, alt = false) =>
 /** Base-aware flag image URL for a campus, derived from its city's country
  *  (US for Florida/US campuses, a globe for the online/global node). */
 function flagSrc(campus: Campus): string {
-  const city = campus.city.toLowerCase();
-  const byCountry: Array<[string, string]> = [
-    ["nicaragua", "ni"],
-    ["bolivia", "bo"],
-    ["ecuador", "ec"],
-    ["peru", "pe"],
-    ["el salvador", "sv"],
-    ["spain", "es"],
-    ["india", "in"],
-    ["indonesia", "id"],
-    ["sri lanka", "lk"],
-    ["vietnam", "vn"],
-    ["china", "cn"],
-  ];
-  for (const [name, cc] of byCountry) if (city.includes(name)) return asset(`flags/${cc}.svg`);
-  if (campus.region === "Online & Global" && city.includes("anywhere")) return asset("globe.svg");
-  return asset("flags/us.svg"); // Florida + US campuses
+  const byCountry: Record<string, string> = {
+    Nicaragua: "ni",
+    "El Salvador": "sv",
+    China: "cn",
+  };
+  if (campus.region === "global") return asset("globe.svg");
+  const cc = byCountry[campus.country];
+  if (cc) return asset(`flags/${cc}.svg`);
+  return asset("flags/us.svg");
 }
 
 /** Load a texture without suspending; resolves to null if the file is absent. */
@@ -302,7 +308,7 @@ function CampusPins({
                     className="h-3.5 w-5 shrink-0 rounded-[1px] object-cover ring-1 ring-black/20"
                   />
                   <span className="px-0.5 font-display text-[11px] font-semibold uppercase tracking-wide">
-                    {active ? campus.name : campus.city.split(",")[0]}
+                    {active ? campus.name : campus.city}
                   </span>
                 </div>
               </Html>
@@ -671,7 +677,8 @@ export default function CampusMap() {
   const [narrate, setNarrate] = useState(speechSupported()); // spoken tour guide
   const [listOpen, setListOpen] = useState(false); // mobile campus-list drawer
   const [aiOpen, setAiOpen] = useState(false); // AI concierge panel
-  const [leadOpen, setLeadOpen] = useState(false); // "Request info" inquiry modal
+  const [leadOpen, setLeadOpen] = useState(false); // two-step TCPA RFI sheet
+  const [panelLang, setPanelLang] = useState<PanelLanguage>("en");
   const [finderOpen, setFinderOpen] = useState(false); // program finder panel
   const [programFilter, setProgramFilter] = useState<ProgramFilter>(EMPTY_FILTER);
   const [shareOpen, setShareOpen] = useState(false); // share sheet
@@ -696,8 +703,9 @@ export default function CampusMap() {
   // Apply `?campus=…&program=…&tour=1` from the opening URL exactly once.
   useEffect(() => {
     const s = readShareParams();
-    if (s.campusId && CAMPUSES.some((c) => c.id === s.campusId)) {
-      setSelectedId(s.campusId);
+    const opened = resolveCampusId(s.campusId);
+    if (opened) {
+      setSelectedId(opened);
       if (s.tour) setInTour(true);
     }
     const level =
@@ -733,6 +741,14 @@ export default function CampusMap() {
     [selectedId],
   );
 
+  useEffect(() => {
+    if (!selected) return;
+    setPanelLang(defaultCampusPanelLanguage(selected, programFilter.text));
+  }, [selected, programFilter.text]);
+
+  const panel = selected ? resolveCampusPanel(selected, panelLang) : null;
+  const panelCopy = PANEL_COPY[panelLang];
+
   // Link + copy text for the share sheet, derived from whatever's on screen.
   const shareContent = useMemo(() => {
     const url = shareUrlFor({
@@ -746,7 +762,7 @@ export default function CampusMap() {
       return {
         url,
         title: `${selected.name} — Keiser University`,
-        text: `${selected.name} (${selected.city}) — “${selected.tagline}” Explore it on Keiser's interactive campus globe.`,
+        text: `${selected.name} (${campusLocation(selected)}) — “${selected.tagline}” Explore it on Keiser's interactive campus globe.`,
       };
     }
     if (filterIsActive(programFilter)) {
@@ -937,9 +953,14 @@ export default function CampusMap() {
       )}
 
       {/* ---- Admissions inquiry modal ---- */}
-      {leadOpen && (
+      {leadOpen && selected && (
         <Suspense fallback={null}>
-          <LeadForm campus={selected} onClose={() => setLeadOpen(false)} />
+          <RfiSheet
+            campus={selected}
+            searchQuery={programFilter.text}
+            language={panelLang}
+            onClose={() => setLeadOpen(false)}
+          />
         </Suspense>
       )}
 
@@ -1070,7 +1091,7 @@ export default function CampusMap() {
                     : "border border-white/15 bg-white/5 text-slate-200 hover:bg-white/10"
                 }`}
               >
-                {r}
+                {r === "All" ? "All" : REGION_LABELS[r]}
               </button>
             ))}
           </div>
@@ -1091,7 +1112,7 @@ export default function CampusMap() {
                   {campus.flagship && <StarIcon />}
                   <span className="text-sm font-semibold text-white">{campus.name}</span>
                 </div>
-                <span className="text-[11px] text-slate-300/70">{campus.city}</span>
+                <span className="text-[11px] text-slate-300/70">{campusLocation(campus)}</span>
               </button>
             ))}
           </div>
@@ -1155,19 +1176,45 @@ export default function CampusMap() {
       {selected && !inTour && (
         <section className="absolute right-4 top-24 bottom-28 w-[min(92vw,22rem)] animate-fade-in sm:right-6">
           <div className="flex h-full flex-col overflow-hidden rounded-2xl border border-keiser-gold/30 bg-keiser-navy/85 shadow-2xl backdrop-blur-md">
-            <CampusHero key={selected.id} campus={selected} onClose={closePanel} />
+            <CampusHero
+              key={selected.id}
+              campus={selected}
+              tagline={panel?.tagline ?? selected.tagline}
+              onClose={closePanel}
+            />
 
             <div className="scroll-slim flex-1 space-y-4 overflow-y-auto p-5">
-              <p className="text-sm leading-relaxed text-slate-200/90">{selected.description}</p>
+              {panelShowsLanguageToggle(selected) && (
+                <div
+                  className="flex w-fit rounded-lg bg-white/10 p-0.5 ring-1 ring-white/15"
+                  role="group"
+                  aria-label={panelCopy.langToggleAria}
+                >
+                  {(["en", "es"] as const).map((code) => (
+                    <button
+                      key={code}
+                      type="button"
+                      onClick={() => setPanelLang(code)}
+                      className={`rounded-md px-2.5 py-1 text-[11px] font-bold ${
+                        panelLang === code ? "bg-keiser-gold text-keiser-navy" : "text-white/70"
+                      }`}
+                    >
+                      {code.toUpperCase()}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              <p className="text-sm leading-relaxed text-slate-200/90">{panel?.description}</p>
 
               <div className="grid grid-cols-2 gap-3 text-xs">
-                <Fact label="Established" value={selected.established} />
-                <Fact label="Setting" value={selected.setting} />
+                {selected.established && <Fact label={panelCopy.established} value={selected.established} />}
+                <Fact label={panelCopy.setting} value={panel?.setting ?? selected.setting} />
               </div>
 
               <div>
                 <h3 className="mb-1.5 text-xs font-bold uppercase tracking-wider text-keiser-gold/80">
-                  Signature programs
+                  {panelCopy.signaturePrograms}
                 </h3>
                 <div className="flex flex-wrap gap-1.5">
                   {selected.programs.map((p) => (
@@ -1183,10 +1230,10 @@ export default function CampusMap() {
 
               <div>
                 <h3 className="mb-1.5 text-xs font-bold uppercase tracking-wider text-keiser-gold/80">
-                  Campus highlights
+                  {panelCopy.highlights}
                 </h3>
                 <ul className="space-y-1.5">
-                  {selected.highlights.map((h) => (
+                  {(panel?.highlights ?? selected.highlights).map((h) => (
                     <li key={h} className="flex items-start gap-2 text-sm text-slate-200/90">
                       <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-keiser-gold" />
                       {h}
@@ -1194,6 +1241,30 @@ export default function CampusMap() {
                   ))}
                 </ul>
               </div>
+
+              {selected.relatedIds && selected.relatedIds.length > 0 && (
+                <div>
+                  <h3 className="mb-1.5 text-xs font-bold uppercase tracking-wider text-keiser-gold/80">
+                    {panelCopy.relatedLocations}
+                  </h3>
+                  <div className="flex flex-wrap gap-1.5">
+                    {selected.relatedIds.map((id) => {
+                      const related = campusById(id);
+                      if (!related) return null;
+                      return (
+                        <button
+                          key={id}
+                          type="button"
+                          onClick={() => handleManualSelect(related)}
+                          className="rounded-full border border-white/15 bg-white/5 px-2.5 py-1 text-[11px] font-medium text-slate-200 hover:border-keiser-gold/40"
+                        >
+                          {related.name}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="space-y-2 border-t border-white/10 p-4">
@@ -1201,14 +1272,14 @@ export default function CampusMap() {
                 onClick={enterTour}
                 className="w-full rounded-xl bg-keiser-gold py-3 text-sm font-bold text-keiser-navy transition hover:bg-keiser-flame"
               >
-                Enter 3D campus tour →
+                {panelCopy.walkCampus} →
               </button>
               <div className="grid grid-cols-2 gap-2">
                 <button
                   onClick={() => setLeadOpen(true)}
                   className="rounded-xl border border-keiser-gold/50 py-3 text-sm font-bold text-keiser-gold transition hover:bg-keiser-gold/15"
                 >
-                  Request info →
+                  {panelCopy.requestInfo} →
                 </button>
                 <button
                   onClick={() => setShareOpen(true)}
@@ -1216,6 +1287,32 @@ export default function CampusMap() {
                 >
                   <ShareIcon /> Share
                 </button>
+              </div>
+              <a
+                href={APPLY_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex w-full items-center justify-center rounded-xl border border-keiser-gold/50 py-3 text-sm font-bold text-keiser-gold transition hover:bg-keiser-gold/15"
+              >
+                {panelCopy.apply} ↗
+              </a>
+              <div className="flex gap-2">
+                <a
+                  href={selected.website}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex-1 rounded-xl border border-white/15 py-2 text-center text-xs font-semibold text-slate-200 hover:bg-white/10"
+                >
+                  {panelCopy.site} ↗
+                </a>
+                {campusPhones(selected)[0] && (
+                  <a
+                    href={telHref(campusPhones(selected)[0])}
+                    className="flex-1 rounded-xl border border-white/15 py-2 text-center text-xs font-semibold text-slate-200 hover:bg-white/10"
+                  >
+                    {panelCopy.call}
+                  </a>
+                )}
               </div>
               {selected.virtualTour && (
                 <a
@@ -1386,7 +1483,15 @@ function CampusStreetView({ campus }: { campus: Campus }) {
 }
 
 // ---- Campus panel hero: real photo when available, gradient fallback -------
-function CampusHero({ campus, onClose }: { campus: Campus; onClose: () => void }) {
+function CampusHero({
+  campus,
+  tagline,
+  onClose,
+}: {
+  campus: Campus;
+  tagline?: string;
+  onClose: () => void;
+}) {
   // The hero shows the primary photo (explicit `photo` or the `<id>.jpg`
   // convention) plus any `gallery` images, auto-rotating between them. If
   // images are missing it falls back to the brand gradient, so the panel
@@ -1430,13 +1535,13 @@ function CampusHero({ campus, onClose }: { campus: Campus; onClose: () => void }
           <CloseIcon />
         </button>
         <span className="text-[11px] font-semibold uppercase tracking-wider text-keiser-gold">
-          {campus.region}
+          {REGION_LABELS[campus.region]}
         </span>
         <h2 className="mt-1 font-display text-2xl font-bold uppercase tracking-wide text-white drop-shadow">
           {campus.name}
         </h2>
-        <p className="text-sm text-slate-200 drop-shadow">{campus.city}</p>
-        <p className="mt-2 text-sm italic text-keiser-gold drop-shadow">“{campus.tagline}”</p>
+        <p className="text-sm text-slate-200 drop-shadow">{campusLocation(campus)}</p>
+        <p className="mt-2 text-sm italic text-keiser-gold drop-shadow">“{tagline ?? campus.tagline}”</p>
 
         {/* Gallery dots */}
         {hasPhoto && images.length > 1 && (

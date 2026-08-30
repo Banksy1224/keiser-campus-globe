@@ -13,6 +13,7 @@
 import express from "express";
 import cors from "cors";
 import Anthropic from "@anthropic-ai/sdk";
+import { registerRfiRoutes } from "./rfi-routes.js";
 
 const app = express();
 app.use(express.json({ limit: "1mb" }));
@@ -22,8 +23,10 @@ const client = new Anthropic(); // reads ANTHROPIC_API_KEY from env
 
 // Health check (Railway pings this).
 app.get("/", (_req, res) =>
-  res.json({ ok: true, service: "keiser-campus-globe concierge" }),
+  res.json({ ok: true, service: "keiser-campus-globe" }),
 );
+
+registerRfiRoutes(app);
 
 app.post("/api/chat", async (req, res) => {
   try {

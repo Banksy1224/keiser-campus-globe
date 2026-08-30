@@ -37,8 +37,12 @@ Built as a **tour and admissions tool** for prospective students.
   so a human never fights the camera for control.
 
 **For prospective students**
-- Region filter (Florida / Latin America / Online & Global).
-- Student-facing tour copy for the full campus roster.
+- Region filter (Florida / Latin America / Asia / Online).
+- Official Keiser campus catalog (Graduate School, Managua, San Salvador,
+  Shanghai, Ocala, and Florida career campuses) with directory phones and
+  published signature programs — not invented copy.
+- Spanish pin-panel for Managua / San Salvador (default ES), Latin American
+  Campus San Marcos (EN default + toggle), and Online when the search is En Línea.
 
 ## Tech stack
 
@@ -115,19 +119,26 @@ the key's API restrictions. The Embed API has no per-request cost; the metadata
 probe is free. Only one view is ever mounted at a time, so the WebGL tiles and
 the iframe never compete for resources.
 
-## Request info (admissions leads)
+## Request info (two-step TCPA)
 
-Every campus panel and the in-tour CTA open a **Request info** form (name,
-email, phone, program & campus of interest, message) so the tour doubles as an
-admissions funnel. It submits to [Web3Forms](https://web3forms.com), which is
-built for static sites — the access key is public-safe and leads are emailed
-straight to the admissions inbox tied to the key (no backend required).
+Every campus panel and the in-tour CTA open a **two-step request for information**:
+contact + TCPA consent, then program / start term / education level. Campus and
+modality are locked from the selected pin (`source` / `utm_source` = `campus-tour`).
+Apply CTA goes to [enroll.keiseruniversity.edu](https://enroll.keiseruniversity.edu/).
 
-**Enable it:** get a free key at [web3forms.com](https://web3forms.com) (enter
-the inbox where leads should land), then add a repo **variable** named
-`VITE_WEB3FORMS_KEY`. Optionally set `VITE_LEAD_EMAIL` for the fallback. Without
-the key the form still works — it falls back to a prefilled email draft — so it's
-never a dead end.
+**Static (GitHub Pages):** if `VITE_WEB3FORMS_KEY` is set, the sheet POSTs to
+[Web3Forms](https://web3forms.com). Without it, a prefilled mailto: draft is the
+last resort.
+
+**Backend (Railway `server/`):** the sheet ALSO POSTs `/api/rfi` (same-origin, or
+`${VITE_AI_ENDPOINT}/api/rfi`). The server validates with zod, rate-limits,
+drops honeypots, persists to `rfi_inquiries` when `DATABASE_URL` is set (memory
+fallback otherwise so prospects never 500), emails the campus admissions inbox
+via SMTP, and optionally POSTs `RFI_WEBHOOK_URL` for a later CRM. Destination
+emails come from each campus's published inbox, with corridor fallbacks
+(Flagship → WPB, Graduate / Online / Shanghai → FTL). See `server/README.md`.
+
+This is the **Keiser Globe** product. It does not write SEC Genie tables.
 
 ## Tuning knobs
 
@@ -142,9 +153,9 @@ Most of the "feel" lives in constants at the top of
 | `TRAIL_FADE`      | Length of the comet tail behind the aircraft     |
 | `TOUR_DWELL_MS`   | Guided-tour pause at each campus                  |
 
-## Data caveat
+## Catalog
 
-Campus coordinates are real, and the roster reflects Keiser's known campuses, but
-the descriptions, program lists, and details are written as **plausible
-admissions copy**. Reconcile against official Keiser data before using with live
-prospects.
+Campus locations, directory phones, and signature programs are taken from
+official Keiser campus pages and the campus directory. Do not invent programs.
+Spanish panel copy (Latin America + En Línea) lives in
+[`src/lib/campus-panel-copy.ts`](src/lib/campus-panel-copy.ts); globe chrome stays English.

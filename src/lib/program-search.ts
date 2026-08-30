@@ -1,18 +1,12 @@
-// Program finder — lets prospects filter campuses by Keiser University's
-// official academic disciplines (areas of study) and degree types, sourced from
-// keiseruniversity.edu/programs/all-programs.
-//
-// Rather than guess a program's discipline from substrings (which mis-filed
-// "Radiologic Technology" under I.T. and matched "MBA" inside "Mumbai"), every
-// program string in the dataset is mapped explicitly to its discipline(s) and
-// degree level(s). Matching is therefore exact and every result shows the real
-// programs that matched.
+// Program finder — filter campuses by Keiser University's official academic
+// disciplines and degree types. Every signature program string in campus-data
+// is mapped explicitly so matching stays exact. Do not invent programs.
 
 import { CAMPUSES, type Campus } from "./campus-data";
+import { isSpanishAliasQuery } from "../../shared/rfi";
 
 export type DegreeLevel = "Associate" | "Bachelor's" | "Master's" | "Doctoral";
 
-// Degree levels in the order Keiser lists them.
 export const DEGREE_LEVELS: DegreeLevel[] = ["Associate", "Bachelor's", "Master's", "Doctoral"];
 
 interface ProgramMeta {
@@ -20,69 +14,69 @@ interface ProgramMeta {
   levels: DegreeLevel[];
 }
 
-// Maps every program string used in campus-data.ts to Keiser's academic
-// disciplines and the degree level(s) the listed program implies. Disciplines
-// use Keiser's "areas of study" names; "English & Pathways" covers the
-// international language centers' ESL / college-prep tracks (non-degree).
 const PROGRAM_INDEX: Record<string, ProgramMeta> = {
   // Nursing
-  "Nursing (BSN)": { disciplines: ["Nursing"], levels: ["Bachelor's"] },
+  "Nursing, AS": { disciplines: ["Nursing"], levels: ["Associate"] },
+  "Nursing, BSN (Traditional)": { disciplines: ["Nursing"], levels: ["Bachelor's"] },
+  "Nursing, BSN (Accelerated)": { disciplines: ["Nursing"], levels: ["Bachelor's"] },
+  "Family Nurse Practitioner, MSN FNP": { disciplines: ["Nursing"], levels: ["Master's"] },
 
-  // Health Sciences (clinical / allied health)
-  "Biomedical Sciences": { disciplines: ["Health Sciences"], levels: ["Bachelor's"] },
-  "Health Sciences": { disciplines: ["Health Sciences"], levels: ["Master's", "Doctoral"] },
-  "Radiologic Technology": { disciplines: ["Health Sciences"], levels: ["Associate"] },
-  "Diagnostic Medical Sonography": { disciplines: ["Health Sciences"], levels: ["Bachelor's"] },
-  "Cardiovascular Technology": { disciplines: ["Health Sciences"], levels: ["Associate"] },
-  "Medical Assisting": { disciplines: ["Health Sciences"], levels: ["Associate"] },
-  "Occupational Therapy Assistant": { disciplines: ["Health Sciences"], levels: ["Associate"] },
-  "Physical Therapist Assistant": { disciplines: ["Health Sciences"], levels: ["Associate"] },
+  // Health Sciences
+  "Biomedical Sciences (Pre-Med)": { disciplines: ["Health Sciences"], levels: ["Bachelor's"] },
+  "Biomedical Sciences, BS (Pre-Med)": { disciplines: ["Health Sciences"], levels: ["Bachelor's"] },
+  "Biomedical Sciences, BS (Pre-PA)": { disciplines: ["Health Sciences"], levels: ["Bachelor's"] },
+  "Radiologic Technology, AS": { disciplines: ["Health Sciences"], levels: ["Associate"] },
+  "Diagnostic Medical Sonography, AS": { disciplines: ["Health Sciences"], levels: ["Associate"] },
+  "Physical Therapist Assistant, AS": { disciplines: ["Health Sciences"], levels: ["Associate"] },
+  "Occupational Therapy Assistant, AS": { disciplines: ["Health Sciences"], levels: ["Associate"] },
+  "Medical Assisting, AS": { disciplines: ["Health Sciences"], levels: ["Associate"] },
+  "Medical Assisting Science, AS": { disciplines: ["Health Sciences"], levels: ["Associate"] },
+  "Medical Laboratory Technician, AS": { disciplines: ["Health Sciences"], levels: ["Associate"] },
+  "Medical Laboratory Science, BS": { disciplines: ["Health Sciences"], levels: ["Bachelor's"] },
+  "Surgical Technology, AS": { disciplines: ["Health Sciences"], levels: ["Associate"] },
+  "Chiropractic, DC": { disciplines: ["Health Sciences"], levels: ["Doctoral"] },
 
-  // Health Care (administration)
-  "Health Services Admin": { disciplines: ["Health Care"], levels: ["Bachelor's"] },
+  // Health Care
   "Health Services Administration": { disciplines: ["Health Care"], levels: ["Bachelor's"] },
 
-  // Business / Accounting / Marketing
-  Business: { disciplines: ["Business"], levels: ["Bachelor's"] },
+  // Business
   "Business Administration": { disciplines: ["Business"], levels: ["Bachelor's"] },
-  "International Business": { disciplines: ["Business"], levels: ["Bachelor's"] },
-  Commerce: { disciplines: ["Business"], levels: ["Bachelor's"] },
-  "Business (BBA)": { disciplines: ["Business"], levels: ["Bachelor's"] },
-  "Business (BBA/MBA)": { disciplines: ["Business"], levels: ["Bachelor's", "Master's"] },
-  "MBA / DBA": { disciplines: ["Business"], levels: ["Master's", "Doctoral"] },
-  Accounting: { disciplines: ["Accounting"], levels: ["Bachelor's"] },
-  Marketing: { disciplines: ["Marketing"], levels: ["Bachelor's"] },
+  "Business Administration, MBA": { disciplines: ["Business"], levels: ["Master's"] },
+  "Business Administration, BA / MBA": { disciplines: ["Business"], levels: ["Bachelor's", "Master's"] },
+  "Business Administration, BA (Mandarin)": { disciplines: ["Business"], levels: ["Bachelor's"] },
+  "Business Administration, MBA (Mandarin)": { disciplines: ["Business"], levels: ["Master's"] },
+  "Doctor of Business Administration, DBA": { disciplines: ["Business"], levels: ["Doctoral"] },
+  "Licenciatura en Administración": { disciplines: ["Business"], levels: ["Bachelor's"] },
+  "MBA (Spanish)": { disciplines: ["Business"], levels: ["Master's"] },
+  "MBA Administración de Servicios de Salud": { disciplines: ["Business", "Health Care"], levels: ["Master's"] },
+  "Public Administration, BA": { disciplines: ["Business"], levels: ["Bachelor's"] },
 
-  // Information Technology / Engineering
+  // IT / Engineering
   "Information Technology": { disciplines: ["Information Technology"], levels: ["Bachelor's"] },
-  Engineering: { disciplines: ["Engineering"], levels: ["Bachelor's"] },
-  "Engineering Technology": { disciplines: ["Engineering"], levels: ["Bachelor's"] },
+  "Cybersecurity, BS": { disciplines: ["Information Technology"], levels: ["Bachelor's"] },
+  "Software Engineering, BS": { disciplines: ["Engineering", "Information Technology"], levels: ["Bachelor's"] },
 
-  // Criminal Justice / Legal
+  // Criminal Justice / Legal / Global
   "Criminal Justice": { disciplines: ["Criminal Justice"], levels: ["Bachelor's"] },
-  "Legal Studies": { disciplines: ["Legal Studies"], levels: ["Bachelor's"] },
+  "Global Affairs and International Relations, BA": { disciplines: ["Legal Studies"], levels: ["Bachelor's"] },
 
-  // Psychology / Education
-  Psychology: { disciplines: ["Psychology"], levels: ["Bachelor's"] },
-  "Psychology (MS / Psy.D.)": { disciplines: ["Psychology"], levels: ["Master's", "Doctoral"] },
-  Education: { disciplines: ["Education"], levels: ["Bachelor's"] },
-  "Education (Ed.D.)": { disciplines: ["Education"], levels: ["Doctoral"] },
+  // Psychology / Education / Counseling
+  "Psychology, BA": { disciplines: ["Psychology"], levels: ["Bachelor's"] },
+  "Psychology, BA / MS": { disciplines: ["Psychology"], levels: ["Bachelor's", "Master's"] },
+  "Licenciatura en Psicología": { disciplines: ["Psychology"], levels: ["Bachelor's"] },
+  "Applied Psychology, MS (Mandarin)": { disciplines: ["Psychology"], levels: ["Master's"] },
+  "Industrial and Organizational Psychology, MS": { disciplines: ["Psychology"], levels: ["Master's"] },
+  "Industrial and Organizational Psychology, MS (Mandarin)": { disciplines: ["Psychology"], levels: ["Master's"] },
+  "Clinical Mental Health Counseling, MS": { disciplines: ["Psychology"], levels: ["Master's"] },
+  "Education-Leadership, MSEd": { disciplines: ["Education"], levels: ["Master's"] },
 
-  // Culinary / Hospitality / Sport / Communications
-  "Culinary Arts": { disciplines: ["Culinary"], levels: ["Associate"] },
-  "Hospitality Management": { disciplines: ["Hospitality Management"], levels: ["Bachelor's"] },
-  Tourism: { disciplines: ["Hospitality Management"], levels: ["Bachelor's"] },
+  // Culinary / Sport / Design
+  "Culinary Arts, AS": { disciplines: ["Culinary"], levels: ["Associate"] },
   "Sport Management": { disciplines: ["Sports Management"], levels: ["Bachelor's"] },
-  Communications: { disciplines: ["Communications"], levels: ["Bachelor's"] },
-
-  // International language centers (non-degree pathways)
-  "English Language": { disciplines: ["English & Pathways"], levels: [] },
-  "Academic Preparation": { disciplines: ["English & Pathways"], levels: [] },
-  "Pathway to Degree Programs": { disciplines: ["English & Pathways"], levels: [] },
+  "Golf Management": { disciplines: ["Sports Management"], levels: ["Bachelor's"] },
+  "Graphic Arts and Design, AS": { disciplines: ["Communications"], levels: ["Associate"] },
 };
 
-// Student-phrasing → discipline, so free-text search still finds things by
-// common names that aren't the exact discipline label.
 const TEXT_SYNONYMS: Record<string, string[]> = {
   it: ["information technology"],
   "computer science": ["information technology"],
@@ -91,21 +85,24 @@ const TEXT_SYNONYMS: Record<string, string[]> = {
   tech: ["information technology", "engineering"],
   nurse: ["nursing"],
   rn: ["nursing"],
-  finance: ["accounting", "business"],
+  bsn: ["nursing"],
+  finance: ["business"],
+  mba: ["business"],
   health: ["health sciences", "health care"],
   medical: ["health sciences"],
+  imaging: ["health sciences"],
   law: ["legal studies", "criminal justice"],
-  lawyer: ["legal studies"],
   chef: ["culinary"],
   cooking: ["culinary"],
-  hotel: ["hospitality management"],
-  travel: ["hospitality management"],
   sport: ["sports management"],
   sports: ["sports management"],
+  golf: ["sports management"],
   teaching: ["education"],
   teacher: ["education"],
-  english: ["english & pathways"],
-  esl: ["english & pathways"],
+  psych: ["psychology"],
+  counseling: ["psychology"],
+  chiropractic: ["health sciences"],
+  dc: ["health sciences"],
 };
 
 export interface ProgramFilter {
@@ -124,7 +121,6 @@ function metaFor(program: string): ProgramMeta {
   return PROGRAM_INDEX[program] ?? { disciplines: [], levels: [] };
 }
 
-/** Expand free-text into the substrings to test (raw + phrasing synonyms). */
 function textNeedles(text: string): string[] {
   const t = text.trim().toLowerCase();
   if (!t) return [];
@@ -137,7 +133,6 @@ function textNeedles(text: string): string[] {
   return [...needles];
 }
 
-/** Does a single program satisfy every active part of the filter? */
 function programMatches(program: string, f: ProgramFilter): boolean {
   const meta = metaFor(program);
   if (f.discipline && !meta.disciplines.includes(f.discipline)) return false;
@@ -149,28 +144,29 @@ function programMatches(program: string, f: ProgramFilter): boolean {
   return true;
 }
 
-/**
- * Campus ids with at least one program matching the filter. Returns `null` when
- * no filter is active (meaning "no filter"), so callers can tell that apart from
- * an empty Set (a filter that matched nothing).
- */
+function campusAliasMatches(campus: Campus, f: ProgramFilter): boolean {
+  if (!f.text.trim() || f.discipline || f.level) return false;
+  const hay = [campus.name, campus.city, ...(campus.aliases ?? [])].join(" ").toLowerCase();
+  if (isSpanishAliasQuery(f.text) && campus.id === "online-global") return true;
+  return textNeedles(f.text).some((n) => hay.includes(n));
+}
+
 export function matchCampuses(f: ProgramFilter): Set<string> | null {
   if (!filterIsActive(f)) return null;
   const ids = new Set<string>();
   for (const campus of CAMPUSES) {
-    if (campus.programs.some((p) => programMatches(p, f))) ids.add(campus.id);
+    if (campus.programs.some((p) => programMatches(p, f)) || campusAliasMatches(campus, f)) {
+      ids.add(campus.id);
+    }
   }
   return ids;
 }
 
-/** The campus's programs that match the filter (for the result chips). */
 export function matchingPrograms(campus: Campus, f: ProgramFilter): string[] {
   if (!filterIsActive(f)) return [];
   return campus.programs.filter((p) => programMatches(p, f));
 }
 
-/** Disciplines present in the dataset, with how many campuses offer each,
- *  ordered by reach then name — used to render the discipline chips. */
 export function availableDisciplines(): Array<{ label: string; count: number }> {
   const counts = new Map<string, number>();
   for (const campus of CAMPUSES) {
@@ -185,7 +181,6 @@ export function availableDisciplines(): Array<{ label: string; count: number }> 
     .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label));
 }
 
-/** Degree levels present in the dataset, in Keiser's order. */
 export function availableLevels(): DegreeLevel[] {
   const present = new Set<DegreeLevel>();
   for (const campus of CAMPUSES) {
@@ -196,7 +191,6 @@ export function availableLevels(): DegreeLevel[] {
   return DEGREE_LEVELS.filter((l) => present.has(l));
 }
 
-/** Short human label describing the active filter (for the collapsed pill). */
 export function describeFilter(f: ProgramFilter): string {
   const parts: string[] = [];
   if (f.discipline) parts.push(f.discipline);
