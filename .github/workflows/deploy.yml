@@ -42,10 +42,8 @@ jobs:
           # HTTP-referrer restricted). Without it, the app falls back to the
           # stylized 3D campus scene.
           VITE_GOOGLE_MAPS_API_KEY: ${{ secrets.VITE_GOOGLE_MAPS_API_KEY }}
-          # Optional: enables the AI concierge. Add a repo VARIABLE named
-          # VITE_AI_ENDPOINT = your backend URL (see server/README.md). It's a
-          # public URL, so a variable (not a secret) is fine.
-          VITE_AI_ENDPOINT: ${{ vars.VITE_AI_ENDPOINT }}
+          # Railway API for concierge + POST /api/rfi. Repo var overrides.
+          VITE_AI_ENDPOINT: ${{ vars.VITE_AI_ENDPOINT || 'https://keiser-campus-globe-production.up.railway.app' }}
           # Optional: GitHub Pages path for the two-step TCPA RFI sheet.
           # Add a repo VARIABLE named VITE_WEB3FORMS_KEY (web3forms.com).
           # The sheet also POSTs /api/rfi when VITE_AI_ENDPOINT is set.
