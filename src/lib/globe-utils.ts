@@ -6,6 +6,10 @@ export const GLOBE_RADIUS = 2;
  * Convert geographic lat/lng (degrees) to a point on a sphere of `radius`.
  * Uses the standard texture-friendly mapping so it lines up with an
  * equirectangular globe texture (lng 0 facing +Z front).
+ *
+ * Result is in the globe group's *local* frame. Pins/arcs live in that
+ * group (which idle-rotates). Camera / fly-to code is in world space and
+ * must run the point through {@link latLngToWorldVec3}.
  */
 export function latLngToVec3(lat: number, lng: number, radius = GLOBE_RADIUS): THREE.Vector3 {
   const phi = (90 - lat) * (Math.PI / 180); // polar angle from +Y
@@ -14,6 +18,24 @@ export function latLngToVec3(lat: number, lng: number, radius = GLOBE_RADIUS): T
   const z = radius * Math.sin(phi) * Math.sin(theta);
   const y = radius * Math.cos(phi);
   return new THREE.Vector3(x, y, z);
+}
+
+/**
+ * Same as {@link latLngToVec3}, then transformed into world space by the
+ * globe group's current matrix (idle Y-spin). Without this, fly-to aims at
+ * where the campus *would* be if the globe had never rotated — which is
+ * how campus buttons were landing on the wrong continent.
+ */
+export function latLngToWorldVec3(
+  lat: number,
+  lng: number,
+  globeGroup: THREE.Object3D | null | undefined,
+  radius = GLOBE_RADIUS,
+): THREE.Vector3 {
+  const local = latLngToVec3(lat, lng, radius);
+  if (!globeGroup) return local;
+  globeGroup.updateWorldMatrix(true, false);
+  return local.applyMatrix4(globeGroup.matrixWorld);
 }
 
 /**

@@ -43,7 +43,7 @@ import {
   type PanelLanguage,
 } from "../lib/campus-panel-copy";
 import { panelShowsLanguageToggle } from "../../shared/rfi";
-import { GLOBE_RADIUS, arcCurvePoints, arcPoint, latLngToVec3 } from "../lib/globe-utils";
+import { GLOBE_RADIUS, arcCurvePoints, arcPoint, latLngToVec3, latLngToWorldVec3 } from "../lib/globe-utils";
 import { speak, speechSupported, stopSpeaking } from "../lib/narration";
 import {
   DEGREE_LEVELS,
@@ -327,9 +327,11 @@ function CampusPins({
 function FlightLayer({
   target,
   controlsRef,
+  globeGroupRef,
 }: {
   target: Campus | null;
   controlsRef: React.MutableRefObject<OrbitControlsImpl | null>;
+  globeGroupRef: React.MutableRefObject<THREE.Group | null>;
 }) {
   const { camera } = useThree();
   const aircraftRef = useRef<THREE.Group>(null);
@@ -384,7 +386,9 @@ function FlightLayer({
     }
     if (target.id === f.lastTargetId) return;
 
-    const toSurface = latLngToVec3(target.lat, target.lng);
+    // World-space destination: pins sit in the auto-rotating globe group, so
+    // a raw lat/lng vector would fly to the un-spun location (wrong region).
+    const toSurface = latLngToWorldVec3(target.lat, target.lng, globeGroupRef.current);
     // Depart from the previous campus if we have one, else from straight under
     // the current camera (so the very first launch glides in, no pop).
     const fromSurface = f.lastTargetId
@@ -411,7 +415,7 @@ function FlightLayer({
 
     if (controlsRef.current) controlsRef.current.enabled = false;
     if (aircraftRef.current) aircraftRef.current.visible = true;
-  }, [target, camera, controlsRef, trailGeo]);
+  }, [target, camera, controlsRef, globeGroupRef, trailGeo]);
 
   useFrame((_, delta) => {
     const f = flight.current;
@@ -631,6 +635,9 @@ function GlobeScene({
 
   useFrame((_, delta) => {
     // Idle auto-rotation when nothing is selected (the "drone hover" feel).
+    // Pins live in this group; FlightLayer reads groupRef.quaternion so the
+    // camera flies to the pin's *current* world position, not the un-spun
+    // lat/lng.
     if (!selectedId && groupRef.current) {
       groupRef.current.rotation.y += delta * 0.04;
     }
@@ -660,7 +667,7 @@ function GlobeScene({
           globeRef={globeRef}
         />
       </group>
-      <FlightLayer target={target} controlsRef={controlsRef} />
+      <FlightLayer target={target} controlsRef={controlsRef} globeGroupRef={groupRef} />
     </>
   );
 }
