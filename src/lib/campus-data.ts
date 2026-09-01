@@ -249,6 +249,7 @@ export const CAMPUSES: Campus[] = [
     phone: "(888) 753-4737",
     phones: ["(954) 318-1620"],
     website: "https://www.keiseruniversity.edu/graduate-school/",
+    email: "AdmissionsInfoGRAD@keiseruniversity.edu",
     relatedIds: ["fort-lauderdale", "online-global"],
     aliases: ["grad school", "graduate", "masters", "doctoral", "phd", "mba", "1600"],
     highlights: [

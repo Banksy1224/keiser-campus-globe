@@ -39,14 +39,14 @@ export type RfiModality = (typeof RFI_MODALITIES)[number];
  * route to the related corridor admissions address, or DEFAULT_RFI_EMAIL.
  *
  *   flagship-wpb     → West Palm Beach career campus (same city; Flagship has no listed inbox)
- *   graduate-school  → Fort Lauderdale main campus (Commercial Blvd corridor)
+ *   graduate-school  → official Graduate School admissions inbox (keiseruniversity.edu/graduate-school/contact)
  *   online-global    → Fort Lauderdale main campus (Online HQ is on the same corridor)
  *   shanghai         → no published China admissions inbox; FTL main campus last resort
  *                      unless DEFAULT_RFI_EMAIL is set (checked before this map)
  */
 export const RFI_EMAIL_FALLBACKS: Record<string, string> = {
   "flagship-wpb": "AdmissionsInfoWPB@keiseruniversity.edu",
-  "graduate-school": "AdmissionsInfoFTL@keiseruniversity.edu",
+  "graduate-school": "AdmissionsInfoGRAD@keiseruniversity.edu",
   "online-global": "AdmissionsInfoFTL@keiseruniversity.edu",
   shanghai: "AdmissionsInfoFTL@keiseruniversity.edu",
 };

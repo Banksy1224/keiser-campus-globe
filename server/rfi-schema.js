@@ -29,7 +29,7 @@ export const RFI_MODALITIES = ["On-campus", "Online", "Graduate"];
 
 export const RFI_EMAIL_FALLBACKS = {
   "flagship-wpb": "AdmissionsInfoWPB@keiseruniversity.edu",
-  "graduate-school": "AdmissionsInfoFTL@keiseruniversity.edu",
+  "graduate-school": "AdmissionsInfoGRAD@keiseruniversity.edu",
   "online-global": "AdmissionsInfoFTL@keiseruniversity.edu",
   shanghai: "AdmissionsInfoFTL@keiseruniversity.edu",
 };
