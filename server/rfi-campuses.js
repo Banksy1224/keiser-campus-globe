@@ -27,7 +27,7 @@ export const RFI_CAMPUSES = {
   "graduate-school": {
     id: "graduate-school",
     name: "Keiser University Graduate School",
-    email: undefined,
+    email: "AdmissionsInfoGRAD@keiseruniversity.edu",
     region: "florida",
     description: "The Graduate School is a first-class Keiser location at 1600 West Commercial Boulevard \u2014 next to main campus (1500 NW 49th Street / Commercial Blvd.) and Online HQ (1900 W. Commercial Blvd.). Official copy: graduate programs enable working adults to take classes 100% online, with small classes, personalized instruction, and support from admission through graduation. Master's, specialist, doctoral, and certificate programs are published on the Graduate School and Graduate Degrees pages.",
     programs: ["Business Administration, MBA", "Doctor of Business Administration, DBA", "Clinical Mental Health Counseling, MS", "Family Nurse Practitioner, MSN FNP", "Education-Leadership, MSEd", "Industrial and Organizational Psychology, MS"],
