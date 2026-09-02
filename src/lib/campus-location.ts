@@ -39,6 +39,7 @@ const ADDRESSES: Record<string, string> = {
   "new-port-richey": "6300 US Hwy 19 N, New Port Richey, FL 34652",
   clearwater: "16120 US Hwy 19 N, Clearwater, FL 33764",
   "fort-myers": "9100 Forum Corporate Pkwy, Fort Myers, FL 33905",
+  ocala: "1601 NE 25th Avenue, Suite 602, Ocala, FL 34470",
   "graduate-school": "1500 NW 49th St, Fort Lauderdale, FL 33309",
 
   // International campuses & global partners (geocoded from the institution's
