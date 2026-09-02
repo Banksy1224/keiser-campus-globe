@@ -13,6 +13,8 @@ const RfiSheet = lazy(() => import("../components/rfi-sheet"));
 const ProgramFinder = lazy(() => import("../components/program-finder"));
 // Share sheet — lazy; only loads when "Share" is opened.
 const ShareMenu = lazy(() => import("../components/share-menu"));
+// Illustrated Florida flyover — lazy; only loads when that mode is opened.
+const FloridaMapView = lazy(() => import("./florida-map"));
 // A Google Maps key (Map Tiles API) enables the photoreal 3D campus tour;
 // without it we fall back to the stylized 3D scene. Kept local so the heavy
 // tiles module stays out of the main chunk.
@@ -55,6 +57,7 @@ import {
   type ProgramFilter,
 } from "../lib/program-search";
 import { readShareParams, shareUrlFor, syncShareUrl } from "../lib/share";
+import { FLORIDA_MAP_IDS, floridaMapCampuses, rosterRowFor } from "../lib/florida-map";
 import { GOOGLE_KEY, useResolvedLatLng, useStreetViewAvailable } from "../lib/campus-location";
 
 // Base-aware asset URL (works under the GitHub Pages project sub-path).
@@ -689,6 +692,9 @@ export default function CampusMap() {
   const [finderOpen, setFinderOpen] = useState(false); // program finder panel
   const [programFilter, setProgramFilter] = useState<ProgramFilter>(EMPTY_FILTER);
   const [shareOpen, setShareOpen] = useState(false); // share sheet
+  const [viewMode, setViewMode] = useState<"globe" | "florida">("globe");
+  const [mapIntro, setMapIntro] = useState(true);
+  const [tourReturn, setTourReturn] = useState<"globe" | "florida">("globe");
   const updateFilter = (patch: Partial<ProgramFilter>) =>
     setProgramFilter((f) => ({ ...f, ...patch }));
   const controlsRef = useRef<OrbitControlsImpl | null>(null);
@@ -710,6 +716,11 @@ export default function CampusMap() {
   // Apply `?campus=…&program=…&tour=1` from the opening URL exactly once.
   useEffect(() => {
     const s = readShareParams();
+    if (s.view === "florida") {
+      setViewMode("florida");
+      setTourReturn("florida");
+      setMapIntro(!s.campusId);
+    }
     const opened = resolveCampusId(s.campusId);
     if (opened) {
       setSelectedId(opened);
@@ -740,8 +751,9 @@ export default function CampusMap() {
       discipline: programFilter.discipline,
       level: programFilter.level,
       tour: inTour,
+      view: viewMode === "florida" ? "florida" : null,
     });
-  }, [selectedId, programFilter, inTour]);
+  }, [selectedId, programFilter, inTour, viewMode]);
 
   const selected = useMemo(
     () => CAMPUSES.find((c) => c.id === selectedId) ?? null,
@@ -764,6 +776,7 @@ export default function CampusMap() {
       discipline: programFilter.discipline,
       level: programFilter.level,
       tour: inTour,
+      view: viewMode === "florida" ? "florida" : null,
     });
     if (selected) {
       return {
@@ -785,10 +798,10 @@ export default function CampusMap() {
       title: "Keiser University — Campus Globe",
       text: "Explore Keiser University's worldwide campuses on an interactive 3D globe.",
     };
-  }, [selected, selectedId, programFilter, inTour]);
+  }, [selected, selectedId, programFilter, inTour, viewMode]);
 
-  // The tour walks the full roster in dataset order regardless of filter.
-  const tourOrder = CAMPUSES;
+  // Globe tour walks the full roster; Florida-map tour stays on the illustrated 19.
+  const tourOrder = viewMode === "florida" ? floridaMapCampuses() : CAMPUSES;
   const tourIndex = selectedId ? tourOrder.findIndex((c) => c.id === selectedId) : -1;
 
   // --- selection -----------------------------------------------------------
@@ -810,7 +823,26 @@ export default function CampusMap() {
   // prospect can keep browsing matches).
   function handleFinderSelect(campus: Campus) {
     handleManualSelect(campus);
+    if (viewMode === "florida" && !FLORIDA_MAP_IDS.has(campus.id)) {
+      setViewMode("globe");
+    }
     if (window.matchMedia("(max-width: 639px)").matches) setFinderOpen(false);
+  }
+
+  function enterFloridaMap() {
+    setTourPlaying(false);
+    setInTour(false);
+    setViewMode("florida");
+    setMapIntro(true);
+    if (selectedId && !FLORIDA_MAP_IDS.has(selectedId)) {
+      setSelectedId(null);
+      stopSpeaking();
+    }
+  }
+
+  function enterGlobe() {
+    setViewMode("globe");
+    setMapIntro(false);
   }
 
   function closePanel() {
@@ -878,6 +910,7 @@ export default function CampusMap() {
   // Entering a 3D campus scene yields camera control, so pause the tour.
   function enterTour() {
     setTourPlaying(false);
+    setTourReturn(viewMode);
     setInTour(true);
   }
 
@@ -887,6 +920,9 @@ export default function CampusMap() {
     if (!first) return;
     setTourPlaying(false);
     setInTour(false);
+    if (viewMode === "florida" && !FLORIDA_MAP_IDS.has(first.id)) {
+      setViewMode("globe");
+    }
     handleSelect(first);
   }
 
@@ -894,7 +930,13 @@ export default function CampusMap() {
     ? `Guided tour · ${selected ? selected.name : "starting…"}`
     : inTour && selected
       ? `3D tour · ${selected.name}`
-      : "Drag to orbit · scroll to zoom · click a campus to fly in";
+      : viewMode === "florida"
+        ? mapIntro
+          ? "Florida flyover · skip anytime"
+          : "Drag to orbit · click a campus or the legend to fly in"
+        : "Drag to orbit · scroll to zoom · click a campus to fly in";
+
+  const listCampuses = viewMode === "florida" ? floridaMapCampuses() : visibleCampuses;
 
   // When showing the real Google 3D tiles, swap the whole globe canvas out for
   // the tiles canvas — never mount both WebGL contexts at once (that caused
@@ -903,8 +945,22 @@ export default function CampusMap() {
 
   return (
     <div className="relative h-full w-full overflow-hidden bg-keiser-navy">
+      {/* ---- Illustrated Florida flyover (second mode; globe stays intact) ---- */}
+      {!tilesTour && !inTour && viewMode === "florida" && (
+        <Suspense fallback={null}>
+          <FloridaMapView
+            selectedId={selectedId}
+            hoveredId={hoveredId}
+            playIntro={mapIntro}
+            onIntroFinished={() => setMapIntro(false)}
+            onHover={setHoveredId}
+            onSelect={handleManualSelect}
+          />
+        </Suspense>
+      )}
+
       {/* ---- 3D canvas (globe / stylized scene) — hidden during a tiles tour ---- */}
-      {!tilesTour && (
+      {!tilesTour && (viewMode === "globe" || inTour) && (
         <Canvas
           camera={{ position: [0, 1.6, ORBIT_DISTANCE], fov: 45 }}
           gl={{ antialias: true }}
@@ -990,6 +1046,9 @@ export default function CampusMap() {
           <p className="mt-1 hidden max-w-md text-xs text-slate-300/80 sm:block sm:text-sm">
             {subtitle}
           </p>
+          <p className="mt-0.5 hidden text-[10px] uppercase tracking-[0.18em] text-keiser-gold/55 sm:block">
+            Keiser University · CAI
+          </p>
         </div>
 
         <div className="pointer-events-auto flex shrink-0 items-center gap-1.5 sm:gap-2">
@@ -1021,6 +1080,23 @@ export default function CampusMap() {
             >
               {narrate ? <SpeakerIcon /> : <MuteIcon />}
               <span className="hidden sm:inline">{narrate ? "Voice on" : "Voice off"}</span>
+            </button>
+          )}
+
+          {/* Florida illustrated-map / globe toggle */}
+          {!inTour && (
+            <button
+              onClick={() => (viewMode === "florida" ? enterGlobe() : enterFloridaMap())}
+              aria-pressed={viewMode === "florida"}
+              aria-label={viewMode === "florida" ? "Back to globe" : "Open Florida map"}
+              className={`flex items-center gap-2 rounded-full border p-2 text-sm font-semibold backdrop-blur transition sm:px-4 ${
+                viewMode === "florida"
+                  ? "border-keiser-gold bg-keiser-gold/15 text-keiser-gold"
+                  : "border-keiser-gold/40 bg-keiser-navy/70 text-keiser-gold hover:bg-keiser-gold/15"
+              }`}
+            >
+              {viewMode === "florida" ? <GlobeIcon /> : <MapIcon />}
+              <span className="hidden sm:inline">{viewMode === "florida" ? "Globe" : "Florida map"}</span>
             </button>
           )}
 
@@ -1086,42 +1162,57 @@ export default function CampusMap() {
             listOpen ? "flex" : "hidden"
           }`}
         >
-          <div className="flex flex-wrap gap-1.5">
-            {(["All", ...REGIONS] as const).map((r) => (
-              <button
-                key={r}
-                onClick={() => setRegionFilter(r)}
-                aria-pressed={regionFilter === r}
-                className={`rounded-full px-3 py-1 text-xs font-semibold transition ${
-                  regionFilter === r
-                    ? "bg-keiser-gold text-keiser-navy"
-                    : "border border-white/15 bg-white/5 text-slate-200 hover:bg-white/10"
-                }`}
-              >
-                {r === "All" ? "All" : REGION_LABELS[r]}
-              </button>
-            ))}
-          </div>
+          {viewMode !== "florida" && (
+            <div className="flex flex-wrap gap-1.5">
+              {(["All", ...REGIONS] as const).map((r) => (
+                <button
+                  key={r}
+                  onClick={() => setRegionFilter(r)}
+                  aria-pressed={regionFilter === r}
+                  className={`rounded-full px-3 py-1 text-xs font-semibold transition ${
+                    regionFilter === r
+                      ? "bg-keiser-gold text-keiser-navy"
+                      : "border border-white/15 bg-white/5 text-slate-200 hover:bg-white/10"
+                  }`}
+                >
+                  {r === "All" ? "All" : REGION_LABELS[r]}
+                </button>
+              ))}
+            </div>
+          )}
+          {viewMode === "florida" && (
+            <div className="rounded-lg border border-keiser-gold/25 bg-keiser-navy/70 px-3 py-2 text-[11px] font-semibold uppercase tracking-wider text-keiser-gold">
+              19 Florida campuses
+            </div>
+          )}
           <div className="scroll-slim flex-1 space-y-1.5 overflow-y-auto pr-1">
-            {visibleCampuses.map((campus) => (
-              <button
-                key={campus.id}
-                onClick={() => handleManualSelect(campus)}
-                onMouseEnter={() => setHoveredId(campus.id)}
-                onMouseLeave={() => setHoveredId(null)}
-                className={`w-full rounded-lg border px-3 py-2 text-left transition ${
-                  selectedId === campus.id
-                    ? "border-keiser-gold/70 bg-keiser-gold/15"
-                    : "border-white/10 bg-white/5 hover:border-keiser-gold/40 hover:bg-white/10"
-                }`}
-              >
-                <div className="flex items-center gap-1.5">
-                  {campus.flagship && <StarIcon />}
-                  <span className="text-sm font-semibold text-white">{campus.name}</span>
-                </div>
-                <span className="text-[11px] text-slate-300/70">{campusLocation(campus)}</span>
-              </button>
-            ))}
+            {listCampuses.map((campus) => {
+              const mapRow = rosterRowFor(campus.id);
+              return (
+                <button
+                  key={campus.id}
+                  onClick={() => handleManualSelect(campus)}
+                  onMouseEnter={() => setHoveredId(campus.id)}
+                  onMouseLeave={() => setHoveredId(null)}
+                  className={`w-full rounded-lg border px-3 py-2 text-left transition ${
+                    selectedId === campus.id
+                      ? "border-keiser-gold/70 bg-keiser-gold/15"
+                      : "border-white/10 bg-white/5 hover:border-keiser-gold/40 hover:bg-white/10"
+                  }`}
+                >
+                  <div className="flex items-center gap-1.5">
+                    {viewMode === "florida" && mapRow && (
+                      <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-keiser-gold text-[10px] font-bold text-keiser-navy">
+                        {mapRow.number}
+                      </span>
+                    )}
+                    {campus.flagship && <StarIcon />}
+                    <span className="text-sm font-semibold text-white">{campus.name}</span>
+                  </div>
+                  <span className="text-[11px] text-slate-300/70">{campusLocation(campus)}</span>
+                </button>
+              );
+            })}
           </div>
         </aside>
       )}
@@ -1344,7 +1435,9 @@ export default function CampusMap() {
             className="rounded-full border border-keiser-gold/40 bg-keiser-navy/80 px-4 py-2.5 text-sm font-semibold text-keiser-gold backdrop-blur transition hover:bg-keiser-gold/15 sm:px-5"
           >
             ← <span className="sm:hidden">Back</span>
-            <span className="hidden sm:inline">Back to globe</span>
+            <span className="hidden sm:inline">
+              {tourReturn === "florida" ? "Back to map" : "Back to globe"}
+            </span>
           </button>
           <button
             onClick={() => setShareOpen(true)}
@@ -1358,6 +1451,18 @@ export default function CampusMap() {
             className="rounded-full bg-keiser-gold px-4 py-2.5 text-sm font-bold text-keiser-navy transition hover:bg-keiser-flame sm:px-5"
           >
             Request info →
+          </button>
+        </div>
+      )}
+
+      {/* ---- Skip the Florida-map intro flyover ---- */}
+      {viewMode === "florida" && mapIntro && !inTour && (
+        <div className="absolute bottom-6 left-1/2 z-30 -translate-x-1/2 animate-fade-in">
+          <button
+            onClick={() => setMapIntro(false)}
+            className="rounded-full border border-keiser-gold/50 bg-keiser-navy/85 px-5 py-2.5 text-sm font-semibold text-keiser-gold backdrop-blur transition hover:bg-keiser-gold/15"
+          >
+            Skip intro
           </button>
         </div>
       )}
@@ -1603,6 +1708,23 @@ function Fact({ label, value }: { label: string; value: string }) {
 }
 
 // ---- Inline icons (no extra dependency) -----------------------------------
+function MapIcon() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21" />
+      <line x1="9" y1="3" x2="9" y2="18" />
+      <line x1="15" y1="6" x2="15" y2="21" />
+    </svg>
+  );
+}
+function GlobeIcon() {
+  return (
+    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+      <circle cx="12" cy="12" r="9" />
+      <path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18" />
+    </svg>
+  );
+}
 function PlayIcon() {
   return (
     <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">

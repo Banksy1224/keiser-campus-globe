@@ -14,6 +14,8 @@ export interface ShareState {
   /** Degree-type filter. */
   level?: string | null;
   tour?: boolean;
+  /** Illustrated Florida flyover (`florida`) vs the 3D globe. */
+  view?: "florida" | null;
 }
 
 /** Parse the current URL into a ShareState. */
@@ -26,6 +28,7 @@ export function readShareParams(): ShareState {
     discipline: p.get("discipline"),
     level: p.get("level"),
     tour: tour === "1" || tour === "3d",
+    view: p.get("view") === "florida" ? "florida" : null,
   };
 }
 
@@ -38,6 +41,7 @@ export function shareUrlFor(state: ShareState): string {
   if (state.discipline) p.set("discipline", state.discipline);
   if (state.level) p.set("level", state.level);
   if (state.tour && state.campusId) p.set("tour", "1");
+  if (state.view === "florida") p.set("view", "florida");
   const qs = p.toString();
   return qs ? `${base}?${qs}` : base;
 }
