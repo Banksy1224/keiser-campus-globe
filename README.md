@@ -27,6 +27,12 @@ Built as a **tour and admissions tool** for prospective students.
   from each campus's skyline, a central Keiser "flame" monument, trees, and a
   plaza — with admissions CTAs.
 
+**Florida map flyover (second mode)**
+- A **Florida map** toggle opens the official illustrated "Keiser University Florida Campuses" poster as a 2.5D flyover (the 3D Earth globe is unchanged).
+- A short cinematic intro pans the peninsula (skippable). After that, orbit / pan / zoom the artwork.
+- Click a numbered building on the map, a legend row on the artwork, or a campus in the left rail to fly there. The selected campus **pulses** (building + yellow badge). Miami (#19) pulses both southern buildings. Flagship (#6) and West Palm Beach (#17) stay separate.
+- Deep link: `?view=florida` or `?view=florida&campus=miami`.
+
 **Guided tour (kiosk mode)**
 - A **Guided tour** button auto-flies through every campus on a loop, dwelling at
   each so the flight lands and the info reads.

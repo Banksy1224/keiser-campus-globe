@@ -386,6 +386,26 @@ export const CAMPUSES: Campus[] = [
     skyline: [0.6, 0.55, 0.7, 0.5, 0.6, 0.5],
   },
   {
+    id: "ocala",
+    name: "Ocala Campus",
+    city: "Ocala, FL",
+    region: "Florida",
+    lat: 29.2072,
+    lng: -82.1105,
+    tagline: "Marion County's new campus.",
+    description:
+      "Keiser's Ocala campus sits near the medical corridor on NE 25th Avenue, giving Marion, Citrus, Lake, Levy, and Alachua County students a local home for career-focused nursing, health-science, business, and technology programs.",
+    established: "2026",
+    setting: "Medical-corridor campus",
+    programs: ["Nursing (BSN)", "Business Administration", "Information Technology", "Criminal Justice"],
+    highlights: [
+      "Near the Ocala medical corridor",
+      "Serves Marion and surrounding counties",
+      "Career-focused undergraduate and graduate pathways",
+    ],
+    skyline: [0.55, 0.6, 0.5, 0.65, 0.5],
+  },
+  {
     id: "latin-american",
     name: "Latin American Campus",
     city: "San Marcos, Nicaragua",
