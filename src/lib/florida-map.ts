@@ -5,8 +5,10 @@
 // measured from the yellow numbered badges on that artwork so the
 // pulse sits on the real illustration, not a lat/lng guess.
 //
-// Miami (#19) has two building+badge groups; both share campusId "miami".
-// Flagship (#6) and West Palm Beach (#17) are separate entries.
+// Miami (#19) has three yellow badges on this poster (two southern
+// buildings plus one just south of Fort Lauderdale); all share campusId
+// "miami" and all pulse. Flagship (#6) and West Palm Beach (#17) stay
+// separate. No other campuses are invented.
 
 import { CAMPUSES, type Campus } from "./campus-data";
 
@@ -36,32 +38,33 @@ export interface LegendHit {
 
 /** One row per numbered building illustration on the artwork. */
 export const MAP_HOTSPOTS: MapHotspot[] = [
-  { campusId: "clearwater", number: 1, u: 0.207, v: 0.329 },
-  { campusId: "jacksonville", number: 2, u: 0.525, v: 0.082 },
-  { campusId: "daytona", number: 3, u: 0.547, v: 0.167 },
-  { campusId: "fort-myers", number: 4, u: 0.286, v: 0.513 },
-  { campusId: "ocala", number: 5, u: 0.388, v: 0.197 },
-  { campusId: "flagship", number: 6, u: 0.615, v: 0.469 },
-  { campusId: "orlando", number: 7, u: 0.453, v: 0.270 },
-  { campusId: "pembroke-pines", number: 8, u: 0.502, v: 0.546 },
-  { campusId: "new-port-richey", number: 9, u: 0.288, v: 0.253 },
-  { campusId: "lakeland", number: 10, u: 0.375, v: 0.329 },
-  { campusId: "port-st-lucie", number: 11, u: 0.639, v: 0.379 },
-  { campusId: "melbourne", number: 12, u: 0.612, v: 0.305 },
-  { campusId: "naples", number: 13, u: 0.292, v: 0.611 },
-  { campusId: "sarasota", number: 14, u: 0.242, v: 0.442 },
-  { campusId: "tallahassee", number: 15, u: 0.205, v: 0.087 },
-  { campusId: "tampa", number: 16, u: 0.288, v: 0.339 },
-  { campusId: "west-palm-beach", number: 17, u: 0.624, v: 0.62 },
-  { campusId: "fort-lauderdale", number: 18, u: 0.543, v: 0.69 },
-  { campusId: "miami", number: 19, u: 0.538, v: 0.791 },
-  { campusId: "miami", number: 19, u: 0.573, v: 0.877 },
+  { campusId: "clearwater", number: 1, u: 0.191, v: 0.297 },
+  { campusId: "jacksonville", number: 2, u: 0.475, v: 0.13 },
+  { campusId: "daytona", number: 3, u: 0.492, v: 0.207 },
+  { campusId: "fort-myers", number: 4, u: 0.371, v: 0.577 },
+  { campusId: "ocala", number: 5, u: 0.336, v: 0.257 },
+  { campusId: "flagship", number: 6, u: 0.607, v: 0.509 },
+  { campusId: "orlando", number: 7, u: 0.428, v: 0.31 },
+  { campusId: "pembroke-pines", number: 8, u: 0.534, v: 0.666 },
+  { campusId: "new-port-richey", number: 9, u: 0.221, v: 0.408 },
+  { campusId: "lakeland", number: 10, u: 0.436, v: 0.438 },
+  { campusId: "port-st-lucie", number: 11, u: 0.538, v: 0.439 },
+  { campusId: "melbourne", number: 12, u: 0.561, v: 0.338 },
+  { campusId: "naples", number: 13, u: 0.303, v: 0.674 },
+  { campusId: "sarasota", number: 14, u: 0.256, v: 0.498 },
+  { campusId: "tallahassee", number: 15, u: 0.223, v: 0.159 },
+  { campusId: "tampa", number: 16, u: 0.316, v: 0.344 },
+  { campusId: "west-palm-beach", number: 17, u: 0.66, v: 0.609 },
+  { campusId: "fort-lauderdale", number: 18, u: 0.659, v: 0.7 },
+  { campusId: "miami", number: 19, u: 0.658, v: 0.805 },
+  { campusId: "miami", number: 19, u: 0.524, v: 0.858 },
+  { campusId: "miami", number: 19, u: 0.604, v: 0.861 },
 ];
 
 /** Clickable rows on the illustrated right-hand legend. */
 const LEGEND_V = [
-  0.134, 0.17, 0.206, 0.242, 0.278, 0.314, 0.351, 0.387, 0.424, 0.46, 0.496, 0.532, 0.568, 0.603,
-  0.639, 0.675, 0.71, 0.745, 0.781,
+  0.092, 0.127, 0.161, 0.196, 0.231, 0.266, 0.301, 0.336, 0.371, 0.406, 0.441, 0.475, 0.511, 0.546,
+  0.581, 0.615, 0.651, 0.685, 0.72,
 ];
 
 const LEGEND_IDS: Array<{ campusId: string; number: number }> = [
@@ -91,7 +94,7 @@ export const LEGEND_HITS: LegendHit[] = LEGEND_IDS.map((row, i) => {
   const half = 0.017;
   return {
     ...row,
-    u0: 0.795,
+    u0: 0.775,
     v0: mid - half,
     u1: 0.992,
     v1: mid + half,
