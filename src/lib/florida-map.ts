@@ -1,16 +1,12 @@
-// Illustrated Florida-campus map: artwork UV hotspots and roster.
+// Florida map mode: catalog campuses on a real lat/lng peninsula.
 //
-// Coordinates are image-space fractions from the TOP-LEFT of
-// `public/maps/keiser-florida-campuses.jpeg` (1536×1024). They were
-// measured from the yellow numbered badges on that artwork so each
-// standing campus sits on the real illustration, not a lat/lng guess.
-//
-// Miami (#19) has two southern building illustrations (plus a third
-// yellow badge just south of Fort Lauderdale on this poster); all share
-// campusId "miami" and all pulse. Flagship (#6) and West Palm Beach (#17)
-// stay separate. No other campuses are invented.
+// Positions come from `campus-data.ts` — not from the promotional poster.
+// Flagship and West Palm Beach stay separate. Miami is one site. Graduate
+// School and Online sit on the Fort Lauderdale corridor because they already
+// have pins in the catalog. No invented campuses.
 
 import { campusById, resolveCampusId, type Campus } from "./campus-data";
+import { latLngToMap } from "./florida-geo";
 
 /** Official catalog id (`flagship` → `flagship-wpb` on main). */
 export function mapCampusId(id: string): string {
@@ -22,104 +18,17 @@ export function sameMapCampus(a: string | null | undefined, b: string | null | u
   return mapCampusId(a) === mapCampusId(b);
 }
 
-export const FLORIDA_MAP_ASSET = "maps/keiser-florida-campuses.jpeg";
-
-/** Peninsula footprint in scene units (artwork is 1536×1024). */
-export const MAP_WIDTH = 18;
-export const MAP_HEIGHT = 12;
-
-/** Water surface. Land sits above this so the coast has a cliff. */
-export const WATER_Y = -0.1;
-export const LAND_MIN_Y = 0.14;
-export const LAND_MAX_Y = 0.52;
-
-export interface MapHotspot {
+export interface RosterRow {
   campusId: string;
   number: number;
-  /** Badge center, 0–1 from the left edge. */
-  u: number;
-  /** Badge center, 0–1 from the top edge. */
-  v: number;
+  shortName: string;
 }
 
-export interface LegendHit {
-  campusId: string;
-  number: number;
-  u0: number;
-  v0: number;
-  u1: number;
-  v1: number;
-}
-
-/** One row per numbered building illustration on the artwork. */
-export const MAP_HOTSPOTS: MapHotspot[] = [
-  { campusId: "clearwater", number: 1, u: 0.191, v: 0.297 },
-  { campusId: "jacksonville", number: 2, u: 0.475, v: 0.13 },
-  { campusId: "daytona", number: 3, u: 0.492, v: 0.207 },
-  { campusId: "fort-myers", number: 4, u: 0.371, v: 0.577 },
-  { campusId: "ocala", number: 5, u: 0.336, v: 0.257 },
-  { campusId: "flagship", number: 6, u: 0.607, v: 0.509 },
-  { campusId: "orlando", number: 7, u: 0.428, v: 0.31 },
-  { campusId: "pembroke-pines", number: 8, u: 0.534, v: 0.666 },
-  { campusId: "new-port-richey", number: 9, u: 0.221, v: 0.408 },
-  { campusId: "lakeland", number: 10, u: 0.436, v: 0.438 },
-  { campusId: "port-st-lucie", number: 11, u: 0.538, v: 0.439 },
-  { campusId: "melbourne", number: 12, u: 0.561, v: 0.338 },
-  { campusId: "naples", number: 13, u: 0.303, v: 0.674 },
-  { campusId: "sarasota", number: 14, u: 0.256, v: 0.498 },
-  { campusId: "tallahassee", number: 15, u: 0.223, v: 0.159 },
-  { campusId: "tampa", number: 16, u: 0.316, v: 0.344 },
-  { campusId: "west-palm-beach", number: 17, u: 0.66, v: 0.609 },
-  { campusId: "fort-lauderdale", number: 18, u: 0.659, v: 0.7 },
-  // #19 — badge just south of Fort Lauderdale (on the poster).
-  { campusId: "miami", number: 19, u: 0.658, v: 0.805 },
-  // #19 — the two southern Miami buildings (both pulse).
-  { campusId: "miami", number: 19, u: 0.524, v: 0.858 },
-  { campusId: "miami", number: 19, u: 0.604, v: 0.861 },
-];
-
-/** Clickable rows on the illustrated right-hand legend (2D overlay / leftover). */
-const LEGEND_V = [
-  0.092, 0.127, 0.161, 0.196, 0.231, 0.266, 0.301, 0.336, 0.371, 0.406, 0.441, 0.475, 0.511, 0.546,
-  0.581, 0.615, 0.651, 0.685, 0.72,
-];
-
-const LEGEND_IDS: Array<{ campusId: string; number: number }> = [
-  { campusId: "clearwater", number: 1 },
-  { campusId: "jacksonville", number: 2 },
-  { campusId: "daytona", number: 3 },
-  { campusId: "fort-myers", number: 4 },
-  { campusId: "ocala", number: 5 },
-  { campusId: "flagship", number: 6 },
-  { campusId: "orlando", number: 7 },
-  { campusId: "pembroke-pines", number: 8 },
-  { campusId: "new-port-richey", number: 9 },
-  { campusId: "lakeland", number: 10 },
-  { campusId: "port-st-lucie", number: 11 },
-  { campusId: "melbourne", number: 12 },
-  { campusId: "naples", number: 13 },
-  { campusId: "sarasota", number: 14 },
-  { campusId: "tallahassee", number: 15 },
-  { campusId: "tampa", number: 16 },
-  { campusId: "west-palm-beach", number: 17 },
-  { campusId: "fort-lauderdale", number: 18 },
-  { campusId: "miami", number: 19 },
-];
-
-export const LEGEND_HITS: LegendHit[] = LEGEND_IDS.map((row, i) => {
-  const mid = LEGEND_V[i];
-  const half = 0.017;
-  return {
-    ...row,
-    u0: 0.775,
-    v0: mid - half,
-    u1: 0.992,
-    v1: mid + half,
-  };
-});
-
-/** Artwork order (legend 1–19). Graduate School / Online are not on this map. */
-export const FLORIDA_MAP_ROSTER: Array<{ campusId: string; number: number; shortName: string }> = [
+/**
+ * Official Keiser Florida-map numbers 1–19, plus Graduate School and Online
+ * (already pinned on the globe / Fort Lauderdale corridor).
+ */
+export const FLORIDA_MAP_ROSTER: RosterRow[] = [
   { campusId: "clearwater", number: 1, shortName: "Clearwater" },
   { campusId: "jacksonville", number: 2, shortName: "Jacksonville" },
   { campusId: "daytona", number: 3, shortName: "Daytona Beach" },
@@ -139,6 +48,8 @@ export const FLORIDA_MAP_ROSTER: Array<{ campusId: string; number: number; short
   { campusId: "west-palm-beach", number: 17, shortName: "West Palm Beach" },
   { campusId: "fort-lauderdale", number: 18, shortName: "Fort Lauderdale" },
   { campusId: "miami", number: 19, shortName: "Miami" },
+  { campusId: "graduate-school", number: 20, shortName: "Graduate School" },
+  { campusId: "online-global", number: 21, shortName: "Online" },
 ];
 
 export const FLORIDA_MAP_IDS = new Set(FLORIDA_MAP_ROSTER.map((r) => mapCampusId(r.campusId)));
@@ -152,23 +63,56 @@ export function rosterRowFor(campusId: string) {
   return FLORIDA_MAP_ROSTER.find((r) => mapCampusId(r.campusId) === resolved);
 }
 
-export function hotspotsFor(campusId: string): MapHotspot[] {
-  const resolved = mapCampusId(campusId);
-  return MAP_HOTSPOTS.filter((h) => mapCampusId(h.campusId) === resolved);
+export type HeightSampler = (x: number, z: number) => number;
+
+/** Resting aerial viewpoint — Gulf side, looking northeast across the peninsula. */
+export const OVERVIEW_LOOK = latLngToMap(27.55, -82.35, 0.18);
+export const OVERVIEW_POS: [number, number, number] = (() => {
+  const [x, , z] = latLngToMap(25.35, -84.15);
+  return [x - 0.4, 8.4, z + 1.15];
+})();
+
+export interface SitePose {
+  id: string;
+  campus: Campus;
+  number: number;
+  x: number;
+  z: number;
 }
 
-/** World position of a UV point on the peninsula (XZ, Y up). `v` is image-top. */
-export function uvToWorld(u: number, v: number, y = 0): [number, number, number] {
-  return [(u - 0.5) * MAP_WIDTH, y, (v - 0.5) * MAP_HEIGHT];
-}
+/**
+ * Project each roster campus to the map. Campuses closer than MIN_SEP
+ * (Fort Lauderdale corridor; Flagship vs WPB at this scale) are nudged
+ * apart so each stays a distinct 3D site without leaving its neighborhood.
+ */
+export function floridaSitePoses(): SitePose[] {
+  const raw = FLORIDA_MAP_ROSTER.map((row) => {
+    const campus = campusById(row.campusId);
+    if (!campus) return null;
+    const [x, , z] = latLngToMap(campus.lat, campus.lng);
+    return { id: campus.id, campus, number: row.number, x, z };
+  }).filter((s): s is SitePose => Boolean(s));
 
-export type HeightSampler = (u: number, v: number) => number;
-
-const DEFAULT_HEIGHT: HeightSampler = () => 0.22;
-
-/** Building foot: a touch south of the yellow badge so the cutout sits on land. */
-export function hotspotFoot(spot: MapHotspot): { u: number; v: number } {
-  return { u: spot.u, v: Math.min(0.98, spot.v + 0.028) };
+  const MIN = 0.34;
+  const pts = raw.map((s) => ({ ...s }));
+  for (let pass = 0; pass < 8; pass++) {
+    for (let i = 0; i < pts.length; i++) {
+      for (let j = i + 1; j < pts.length; j++) {
+        const dx = pts[j].x - pts[i].x;
+        const dz = pts[j].z - pts[i].z;
+        const d = Math.hypot(dx, dz);
+        if (d >= MIN || d < 1e-6) continue;
+        const nx = dx / d;
+        const nz = dz / d;
+        const push = (MIN - d) * 0.52;
+        pts[i].x -= nx * push;
+        pts[i].z -= nz * push;
+        pts[j].x += nx * push;
+        pts[j].z += nz * push;
+      }
+    }
+  }
+  return pts;
 }
 
 export interface CampusFocus {
@@ -178,44 +122,42 @@ export interface CampusFocus {
   span: number;
 }
 
-/** Centroid (and optional span) of one or more hotspots, in world space. */
-export function focusOf(campusId: string, heightAt: HeightSampler = DEFAULT_HEIGHT): CampusFocus {
-  const spots = hotspotsFor(campusId);
-  if (!spots.length) return { x: -1.4, y: 0.22, z: -0.3, span: 2.6 };
-  const pts = spots.map((s) => {
-    const foot = hotspotFoot(s);
-    return uvToWorld(foot.u, foot.v, heightAt(foot.u, foot.v));
-  });
-  const x = pts.reduce((a, p) => a + p[0], 0) / pts.length;
-  const y = pts.reduce((a, p) => a + p[1], 0) / pts.length;
-  const z = pts.reduce((a, p) => a + p[2], 0) / pts.length;
-  let span = 1.15;
-  if (pts.length > 1) {
-    let maxD = 0;
-    for (let i = 0; i < pts.length; i++) {
-      for (let j = i + 1; j < pts.length; j++) {
-        maxD = Math.max(maxD, Math.hypot(pts[i][0] - pts[j][0], pts[i][2] - pts[j][2]));
-      }
-    }
-    span = Math.max(1.7, maxD * 1.55);
-  }
-  return { x, y, z, span };
+export function focusOf(
+  campusId: string,
+  heightAt: HeightSampler,
+  sites: SitePose[] = floridaSitePoses(),
+): CampusFocus {
+  const resolved = mapCampusId(campusId);
+  const site = sites.find((s) => s.id === resolved);
+  if (!site) return { x: 0, y: 0.25, z: 0, span: 1.4 };
+  const y = heightAt(site.x, site.z);
+  return { x: site.x, y, z: site.z, span: site.campus.flagship ? 1.7 : 1.25 };
 }
 
-/** Resting aerial viewpoint after the intro — SW of the peninsula, looking NE. */
-export const OVERVIEW_LOOK = uvToWorld(0.4, 0.46, 0.12);
-export const OVERVIEW_POS: [number, number, number] = [
-  OVERVIEW_LOOK[0] - 2.15,
-  6.35,
-  OVERVIEW_LOOK[2] + 7.05,
-];
-
-/** Approach a campus from the south-southeast and descend onto it. */
-export function approachOf(campusId: string, heightAt: HeightSampler = DEFAULT_HEIGHT) {
-  const f = focusOf(campusId, heightAt);
-  const dist = 2.05 + f.span * 0.62;
+/** Approach a campus from the south-southeast and descend onto it — never nadir. */
+export function approachOf(
+  campusId: string,
+  heightAt: HeightSampler,
+  sites?: SitePose[],
+) {
+  const f = focusOf(campusId, heightAt, sites);
+  const dist = 2.15 + f.span * 0.45;
   return {
-    look: [f.x, f.y + 0.42, f.z] as [number, number, number],
-    pos: [f.x - 0.22, f.y + dist * 0.58 + 0.35, f.z + dist * 0.82] as [number, number, number],
+    look: [f.x, f.y + 0.28, f.z] as [number, number, number],
+    pos: [f.x - 0.35, f.y + dist * 0.72 + 0.45, f.z + dist * 0.95] as [number, number, number],
   };
 }
+
+/** Intro drone path: Keys → Miami → east coast → I-4 → panhandle. */
+export const INTRO_WAYPOINTS: Array<{ lat: number; lng: number; alt: number; lookLat: number; lookLng: number; lookY: number }> =
+  [
+    { lat: 24.52, lng: -81.78, alt: 1.05, lookLat: 24.7, lookLng: -81.45, lookY: 0.18 },
+    { lat: 25.42, lng: -80.18, alt: 1.45, lookLat: 25.79, lookLng: -80.39, lookY: 0.26 },
+    { lat: 26.02, lng: -80.0, alt: 1.75, lookLat: 26.19, lookLng: -80.16, lookY: 0.28 },
+    { lat: 26.48, lng: -79.98, alt: 2.15, lookLat: 26.73, lookLng: -80.13, lookY: 0.3 },
+    { lat: 27.55, lng: -80.22, alt: 2.75, lookLat: 28.07, lookLng: -80.61, lookY: 0.3 },
+    { lat: 28.05, lng: -81.0, alt: 3.35, lookLat: 28.54, lookLng: -81.31, lookY: 0.32 },
+    { lat: 29.35, lng: -81.28, alt: 3.85, lookLat: 30.25, lookLng: -81.59, lookY: 0.3 },
+    { lat: 30.05, lng: -83.15, alt: 4.25, lookLat: 30.44, lookLng: -84.22, lookY: 0.28 },
+  ];
+

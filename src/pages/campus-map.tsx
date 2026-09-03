@@ -13,7 +13,7 @@ const RfiSheet = lazy(() => import("../components/rfi-sheet"));
 const ProgramFinder = lazy(() => import("../components/program-finder"));
 // Share sheet — lazy; only loads when "Share" is opened.
 const ShareMenu = lazy(() => import("../components/share-menu"));
-// Illustrated Florida flyover — lazy; only loads when that mode is opened.
+// Geographic Florida flyover — lazy; only loads when that mode is opened.
 const FloridaMapView = lazy(() => import("./florida-map"));
 // A Google Maps key (Map Tiles API) enables the photoreal 3D campus tour;
 // without it we fall back to the stylized 3D scene. Kept local so the heavy
@@ -800,7 +800,7 @@ export default function CampusMap() {
     };
   }, [selected, selectedId, programFilter, inTour, viewMode]);
 
-  // Globe tour walks the full roster; Florida-map tour stays on the illustrated 19.
+  // Globe tour walks the full roster; Florida-map tour stays on the peninsula sites.
   const tourOrder = viewMode === "florida" ? floridaMapCampuses() : CAMPUSES;
   const tourIndex = selectedId ? tourOrder.findIndex((c) => c.id === selectedId) : -1;
 
@@ -932,8 +932,8 @@ export default function CampusMap() {
       ? `3D tour · ${selected.name}`
       : viewMode === "florida"
         ? mapIntro
-          ? "Florida flyover · skip anytime"
-          : "Drag to orbit the peninsula · click a campus to fly in"
+          ? "Florida flyover · Keys to panhandle · skip anytime"
+          : "Orbit the 3D peninsula · click a campus to descend"
         : "Drag to orbit · scroll to zoom · click a campus to fly in";
 
   const listCampuses = viewMode === "florida" ? floridaMapCampuses() : visibleCampuses;
@@ -945,7 +945,7 @@ export default function CampusMap() {
 
   return (
     <div className="relative h-full w-full overflow-hidden bg-keiser-navy">
-      {/* ---- Illustrated Florida flyover (second mode; globe stays intact) ---- */}
+      {/* ---- Geographic Florida flyover (second mode; globe stays intact) ---- */}
       {!tilesTour && !inTour && viewMode === "florida" && (
         <Suspense fallback={null}>
           <FloridaMapView
@@ -1083,7 +1083,7 @@ export default function CampusMap() {
             </button>
           )}
 
-          {/* Florida illustrated-map / globe toggle */}
+          {/* Florida geographic-map / globe toggle */}
           {!inTour && (
             <button
               onClick={() => (viewMode === "florida" ? enterGlobe() : enterFloridaMap())}
@@ -1182,7 +1182,7 @@ export default function CampusMap() {
           )}
           {viewMode === "florida" && (
             <div className="rounded-lg border border-keiser-gold/25 bg-keiser-navy/70 px-3 py-2 text-[11px] font-semibold uppercase tracking-wider text-keiser-gold">
-              19 Florida campuses
+              {listCampuses.length} Florida campuses
             </div>
           )}
           <div className="scroll-slim flex-1 space-y-1.5 overflow-y-auto pr-1">

@@ -28,10 +28,10 @@ Built as a **tour and admissions tool** for prospective students.
   plaza — with admissions CTAs.
 
 **Florida map flyover (second mode)**
-- A **Florida map** toggle opens a **3D aerial flyover** of the Florida peninsula. The official illustrated "Keiser University Florida Campuses" artwork textures the extruded landmass and stands as cutout buildings — not a JPEG on a flat plane. The 3D Earth globe is unchanged.
-- Opening cinematic is a true aerial pass (altitude, tilt, bank), skippable, and honors `prefers-reduced-motion`.
-- After the intro, orbit / pan / zoom in 3D. Click a standing campus or a campus in the left rail to descend onto it. The selected campus **pulses** (scale + glow). Miami (#19) pulses both southern buildings. Flagship (#6) and West Palm Beach (#17) stay separate.
-- Roster is the 19 Florida campuses on the poster only (no Graduate School / Online / international pins on this map).
+- A **Florida map** toggle opens a **3D geographic flyover** of Florida: the real peninsula coastline (public GeoJSON, lat/lng) sitting in ocean, with height so a drone camera has altitude, tilt, and bank. The promotional poster is not used as ground, terrain, or campus sprites. The 3D Earth globe is unchanged.
+- Each Florida campus is a volumetric 3D skyline at its catalog `lat`/`lng`. Flagship and West Palm Beach stay separate. Miami is one site. Graduate School and Online sit on the Fort Lauderdale corridor (they already have pins).
+- Opening cinematic flies Keys → Miami → east coast / I-4 → panhandle. Skippable; honors `prefers-reduced-motion`.
+- After the intro, orbit / pan / zoom in 3D (the camera cannot flatten to a top-down poster). Click a 3D campus or a row in the left-rail legend to descend; the selected campus **pulses**.
 - Deep link: `?view=florida` or `?view=florida&campus=miami`.
 
 **Guided tour (kiosk mode)**
