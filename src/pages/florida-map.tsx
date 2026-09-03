@@ -96,9 +96,9 @@ function Ocean() {
         transparent: false,
         uniforms: {
           uTime: { value: 0 },
-          uDeep: { value: new THREE.Color("#0a3d6e") },
-          uShallow: { value: new THREE.Color("#2ec4d4") },
-          uFoam: { value: new THREE.Color("#d8f4f8") },
+          uDeep: { value: new THREE.Color("#0c5a88") },
+          uShallow: { value: new THREE.Color("#3ad4dc") },
+          uFoam: { value: new THREE.Color("#e7f8fb") },
         },
         vertexShader: `
           varying vec3 vWorld;
@@ -210,11 +210,7 @@ function TitlePlaque() {
     <group position={[-6.6, 2.35, -3.4]} rotation={[0, 0.55, 0]}>
       <mesh>
         <planeGeometry args={[4.4, 1.1]} />
-        <meshBasicMaterial map={texture} toneMapped={false} />
-      </mesh>
-      <mesh position={[0, 0, -0.04]}>
-        <boxGeometry args={[4.5, 1.2, 0.06]} />
-        <meshStandardMaterial color="#0b1c33" metalness={0.2} roughness={0.6} />
+        <meshBasicMaterial map={texture} toneMapped={false} side={THREE.DoubleSide} />
       </mesh>
     </group>
   );
@@ -237,31 +233,6 @@ function CompassRose() {
       </mesh>
     </group>
   );
-}
-
-const badgeCache = new Map<number, THREE.CanvasTexture>();
-function badgeTexture(n: number): THREE.CanvasTexture {
-  const hit = badgeCache.get(n);
-  if (hit) return hit;
-  const c = document.createElement("canvas");
-  c.width = c.height = 128;
-  const ctx = c.getContext("2d")!;
-  ctx.beginPath();
-  ctx.arc(64, 64, 58, 0, Math.PI * 2);
-  ctx.fillStyle = FLAME_GOLD;
-  ctx.fill();
-  ctx.lineWidth = 7;
-  ctx.strokeStyle = "#0b1c33";
-  ctx.stroke();
-  ctx.fillStyle = "#0b1c33";
-  ctx.font = "700 62px 'Barlow Condensed', Impact, sans-serif";
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-  ctx.fillText(String(n), 64, 70);
-  const t = new THREE.CanvasTexture(c);
-  t.colorSpace = THREE.SRGBColorSpace;
-  badgeCache.set(n, t);
-  return t;
 }
 
 function Peninsula({ art }: { art: FloridaArt }) {
@@ -366,10 +337,6 @@ function CampusMarkers({
                   side={THREE.DoubleSide}
                   depthWrite
                 />
-              </mesh>
-              <mesh position={[0, sprite.height + 0.16, 0.02]}>
-                <circleGeometry args={[0.13, 24]} />
-                <meshBasicMaterial map={badgeTexture(sprite.number)} toneMapped={false} />
               </mesh>
             </YBillboard>
             <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.02, 0.02]}>

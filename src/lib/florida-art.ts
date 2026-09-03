@@ -70,22 +70,6 @@ function walkableForSprite(r: number, g: number, b: number): boolean {
   return true;
 }
 
-function bilinearMask(mask: Uint8Array, w: number, h: number, u: number, v: number): number {
-  const x = u * (w - 1);
-  const y = v * (h - 1);
-  const x0 = Math.floor(x);
-  const y0 = Math.floor(y);
-  const x1 = Math.min(w - 1, x0 + 1);
-  const y1 = Math.min(h - 1, y0 + 1);
-  const tx = x - x0;
-  const ty = y - y0;
-  const s00 = mask[y0 * w + x0];
-  const s10 = mask[y0 * w + x1];
-  const s01 = mask[y1 * w + x0];
-  const s11 = mask[y1 * w + x1];
-  return s00 * (1 - tx) * (1 - ty) + s10 * tx * (1 - ty) + s01 * (1 - tx) * ty + s11 * tx * ty;
-}
-
 function bilinearHeight(heights: Float32Array, w: number, h: number, u: number, v: number): number {
   const x = u * (w - 1);
   const y = v * (h - 1);
@@ -152,6 +136,32 @@ function floodLand(mask: Uint8Array, w: number, h: number): Uint8Array {
     }
   }
   return closed;
+}
+
+function blurMask(src: Uint8Array | Float32Array, w: number, h: number, passes = 2): Float32Array {
+  let cur = new Float32Array(w * h);
+  for (let i = 0; i < src.length; i++) cur[i] = src[i];
+  for (let p = 0; p < passes; p++) {
+    const next = new Float32Array(w * h);
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        let sum = 0;
+        let n = 0;
+        for (let dy = -1; dy <= 1; dy++) {
+          for (let dx = -1; dx <= 1; dx++) {
+            const nx = x + dx;
+            const ny = y + dy;
+            if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
+            sum += cur[ny * w + nx];
+            n++;
+          }
+        }
+        next[y * w + x] = sum / n;
+      }
+    }
+    cur = next;
+  }
+  return cur;
 }
 
 function coastDistance(land: Uint8Array, w: number, h: number): Float32Array {
@@ -307,29 +317,69 @@ function extractSprite(
   const opaque = out.data.reduce((a, _, i) => a + (i % 4 === 3 && out.data[i] > 16 ? 1 : 0), 0);
   if (opaque < 80) return null;
 
-  const worldH = 0.62 + (ch / ih) * 4.2;
+  const worldH = 0.95 + (ch / ih) * 6.2;
   const worldW = worldH * (cw / ch);
   return { canvas, width: worldW, height: worldH };
 }
 
-function inpaintBuildings(ctx: CanvasRenderingContext2D, iw: number, ih: number) {
-  // Soft-stamp nearby forest color over each building so the terrain isn't a flat painting of the same cutout.
+function inpaintBuildings(ctx: CanvasRenderingContext2D, imgData: ImageData, iw: number, ih: number) {
+  // Replace only building pixels (not a rectangular stamp) so the land stays organic.
+  const data = ctx.getImageData(0, 0, iw, ih);
+  const src = imgData.data;
   for (const spot of MAP_HOTSPOTS) {
     const box = cropFor(spot);
     const x0 = Math.floor(box.u0 * iw);
     const y0 = Math.floor(box.v0 * ih);
-    const w = Math.ceil((box.u1 - box.u0) * iw);
-    const h = Math.ceil((box.v1 - box.v0) * ih);
-    const sampleX = Math.max(2, x0 - 8);
-    const sampleY = Math.min(ih - 2, y0 + h + 4);
-    const pix = ctx.getImageData(sampleX, sampleY, 1, 1).data;
-    ctx.fillStyle = `rgba(${pix[0]},${Math.max(pix[1], 70)},${Math.min(pix[2], 80)},0.82)`;
-    ctx.fillRect(x0, y0, w, h);
+    const x1 = Math.ceil(box.u1 * iw);
+    const y1 = Math.ceil(box.v1 * ih);
+    const samples: number[] = [];
+    const probe = [
+      [x0 - 6, y1 + 4],
+      [x1 + 6, y1 + 4],
+      [x0 - 6, y0 + 8],
+      [x1 + 6, y0 + 8],
+      [Math.floor((x0 + x1) / 2), y1 + 8],
+    ];
+    for (const [px, py] of probe) {
+      const [r, g, b] = pixel(src, iw, px, py, iw, ih);
+      if (g > r - 5 && g > 50 && b < 140) samples.push(r, g, b);
+    }
+    const sr = samples.length ? samples[0] : 70;
+    const sg = samples.length ? samples[1] : 110;
+    const sb = samples.length ? samples[2] : 40;
+    for (let y = y0; y < y1; y++) {
+      for (let x = x0; x < x1; x++) {
+        const [r, g, b] = pixel(src, iw, x, y, iw, ih);
+        if (!walkableForSprite(r, g, b)) continue;
+        const o = (y * iw + x) * 4;
+        data.data[o] = sr;
+        data.data[o + 1] = sg;
+        data.data[o + 2] = sb;
+      }
+    }
+  }
+  ctx.putImageData(data, 0, 0);
+  for (const spot of MAP_HOTSPOTS) {
+    const box = cropFor(spot);
+    const x0 = Math.max(0, Math.floor(box.u0 * iw) - 4);
+    const y0 = Math.max(0, Math.floor(box.v0 * ih) - 4);
+    const w = Math.min(iw - x0, Math.ceil((box.u1 - box.u0) * iw) + 8);
+    const h = Math.min(ih - y0, Math.ceil((box.v1 - box.v0) * ih) + 8);
+    const patch = ctx.getImageData(x0, y0, w, h);
+    const tmp = document.createElement("canvas");
+    tmp.width = w;
+    tmp.height = h;
+    const tctx = tmp.getContext("2d")!;
+    tctx.putImageData(patch, 0, 0);
+    ctx.save();
+    ctx.filter = "blur(1.6px)";
+    ctx.drawImage(tmp, x0, y0);
+    ctx.restore();
   }
 }
 
 function buildPeninsulaGeometry(
-  land: Uint8Array,
+  coverage: Float32Array,
   heights: Float32Array,
   mw: number,
   mh: number,
@@ -341,59 +391,56 @@ function buildPeninsulaGeometry(
   const colors: number[] = [];
   const indices: number[] = [];
 
+  const sampleC = (u: number, v: number) => bilinearHeight(coverage, mw, mh, u, v);
   const sampleH = (u: number, v: number) => bilinearHeight(heights, mw, mh, u, v);
-  const sampleL = (u: number, v: number) => bilinearMask(land, mw, mh, u, v);
 
-  const gridH: number[] = [];
-  const gridL: number[] = [];
+  const cols = segsX + 1;
+  const gridY: number[] = [];
+  const gridC: number[] = [];
   for (let iz = 0; iz <= segsZ; iz++) {
     for (let ix = 0; ix <= segsX; ix++) {
       const u = ix / segsX;
       const v = iz / segsZ;
-      gridL.push(sampleL(u, v));
-      gridH.push(sampleL(u, v) > 0.45 ? sampleH(u, v) : WATER_Y);
+      const cov = sampleC(u, v);
+      const t = THREE.MathUtils.smoothstep(0.22, 0.62, cov);
+      gridC.push(cov);
+      gridY.push(THREE.MathUtils.lerp(WATER_Y, sampleH(u, v), t));
     }
   }
-  const idx = (ix: number, iz: number) => iz * (segsX + 1) + ix;
 
-  const pushTop = (ix: number, iz: number) => {
+  const vertId = new Int32Array((segsX + 1) * (segsZ + 1)).fill(-1);
+  const ensure = (ix: number, iz: number) => {
+    const gi = iz * cols + ix;
+    if (vertId[gi] >= 0) return vertId[gi];
     const u = ix / segsX;
     const v = iz / segsZ;
     const [x, , z] = uvToWorld(u, v);
-    const y = gridH[idx(ix, iz)];
+    const y = gridY[gi];
+    const cov = gridC[gi];
     positions.push(x, y, z);
     uvs.push(u, 1 - v);
-    const coast = Math.min(1, gridL[idx(ix, iz)]);
-    colors.push(0.92 + 0.08 * coast, 0.95, 0.88);
-    return positions.length / 3 - 1;
-  };
-
-  const cornerCache = new Map<string, number>();
-  const corner = (ix: number, iz: number) => {
-    const key = `${ix},${iz}`;
-    const hit = cornerCache.get(key);
-    if (hit !== undefined) return hit;
-    const id = pushTop(ix, iz);
-    cornerCache.set(key, id);
-    return id;
+    const beach = THREE.MathUtils.smoothstep(0.2, 0.55, cov);
+    colors.push(0.86 + 0.14 * beach, 0.82 + 0.16 * beach, 0.62 + 0.3 * beach);
+    vertId[gi] = positions.length / 3 - 1;
+    return vertId[gi];
   };
 
   for (let iz = 0; iz < segsZ; iz++) {
     for (let ix = 0; ix < segsX; ix++) {
-      const l00 = gridL[idx(ix, iz)];
-      const l10 = gridL[idx(ix + 1, iz)];
-      const l11 = gridL[idx(ix + 1, iz + 1)];
-      const l01 = gridL[idx(ix, iz + 1)];
-      if (l00 + l10 + l11 + l01 < 1.6) continue;
-      const a = corner(ix, iz);
-      const b = corner(ix + 1, iz);
-      const c = corner(ix + 1, iz + 1);
-      const d = corner(ix, iz + 1);
+      const c00 = gridC[iz * cols + ix];
+      const c10 = gridC[iz * cols + ix + 1];
+      const c11 = gridC[(iz + 1) * cols + ix + 1];
+      const c01 = gridC[(iz + 1) * cols + ix];
+      if (c00 + c10 + c11 + c01 < 0.55) continue;
+      const a = ensure(ix, iz);
+      const b = ensure(ix + 1, iz);
+      const c = ensure(ix + 1, iz + 1);
+      const d = ensure(ix, iz + 1);
       indices.push(a, b, c, a, c, d);
     }
   }
 
-  // Cliff walls along every land/water grid edge.
+  // Short cliff under the coast so the landmass has thickness over the water.
   const wall = (ax: number, az: number, bx: number, bz: number) => {
     const u0 = ax / segsX;
     const v0 = az / segsZ;
@@ -401,26 +448,27 @@ function buildPeninsulaGeometry(
     const v1 = bz / segsZ;
     const [x0, , z0] = uvToWorld(u0, v0);
     const [x1, , z1] = uvToWorld(u1, v1);
-    const y0 = Math.max(gridH[idx(ax, az)], LAND_MIN_Y);
-    const y1 = Math.max(gridH[idx(bx, bz)], LAND_MIN_Y);
+    const y0 = gridY[az * cols + ax];
+    const y1 = gridY[bz * cols + bx];
+    if (y0 <= WATER_Y + 0.03 && y1 <= WATER_Y + 0.03) return;
     const base = positions.length / 3;
-    positions.push(x0, y0, z0, x1, y1, z1, x1, WATER_Y - 0.04, z1, x0, WATER_Y - 0.04, z0);
+    positions.push(x0, y0, z0, x1, y1, z1, x1, WATER_Y - 0.06, z1, x0, WATER_Y - 0.06, z0);
     uvs.push(u0, 1 - v0, u1, 1 - v1, u1, 1 - v1, u0, 1 - v0);
-    colors.push(0.28, 0.36, 0.16, 0.28, 0.36, 0.16, 0.12, 0.18, 0.1, 0.12, 0.18, 0.1);
+    colors.push(0.32, 0.4, 0.18, 0.32, 0.4, 0.18, 0.14, 0.2, 0.12, 0.14, 0.2, 0.12);
     indices.push(base, base + 1, base + 2, base, base + 2, base + 3);
   };
 
   for (let iz = 0; iz <= segsZ; iz++) {
     for (let ix = 0; ix < segsX; ix++) {
-      const a = gridL[idx(ix, iz)] > 0.45;
-      const b = gridL[idx(ix + 1, iz)] > 0.45;
+      const a = gridC[iz * cols + ix] > 0.35;
+      const b = gridC[iz * cols + ix + 1] > 0.35;
       if (a !== b) wall(ix, iz, ix + 1, iz);
     }
   }
   for (let iz = 0; iz < segsZ; iz++) {
     for (let ix = 0; ix <= segsX; ix++) {
-      const a = gridL[idx(ix, iz)] > 0.45;
-      const b = gridL[idx(ix, iz + 1)] > 0.45;
+      const a = gridC[iz * cols + ix] > 0.35;
+      const b = gridC[(iz + 1) * cols + ix] > 0.35;
       if (a !== b) wall(ix, iz, ix, iz + 1);
     }
   }
@@ -454,6 +502,7 @@ export function buildFloridaArt(image: CanvasImageSource, quality: "high" | "low
     }
   }
   const land = floodLand(mask, MASK_W, MASK_H);
+  const coverage = blurMask(land, MASK_W, MASK_H, 3);
   const cdist = coastDistance(land, MASK_W, MASK_H);
   const heights = new Float32Array(MASK_W * MASK_H);
   for (let y = 0; y < MASK_H; y++) {
@@ -478,15 +527,15 @@ export function buildFloridaArt(image: CanvasImageSource, quality: "high" | "low
   landCanvas.height = ih;
   const lctx = landCanvas.getContext("2d")!;
   lctx.drawImage(src, 0, 0);
-  inpaintBuildings(lctx, iw, ih);
+  inpaintBuildings(lctx, imgData, iw, ih);
   const landTexture = new THREE.CanvasTexture(landCanvas);
   landTexture.colorSpace = THREE.SRGBColorSpace;
   landTexture.anisotropy = 8;
   landTexture.needsUpdate = true;
 
-  const segsX = quality === "high" ? 148 : 88;
-  const segsZ = quality === "high" ? 100 : 60;
-  const geometry = buildPeninsulaGeometry(land, heights, MASK_W, MASK_H, segsX, segsZ);
+  const segsX = quality === "high" ? 176 : 110;
+  const segsZ = quality === "high" ? 120 : 74;
+  const geometry = buildPeninsulaGeometry(coverage, heights, MASK_W, MASK_H, segsX, segsZ);
 
   const sprites: CampusSprite[] = [];
   for (const spot of MAP_HOTSPOTS) {
@@ -507,8 +556,12 @@ export function buildFloridaArt(image: CanvasImageSource, quality: "high" | "low
     });
   }
 
-  const heightAt = (u: number, v: number) => bilinearHeight(heights, MASK_W, MASK_H, u, v);
-  const isLandAt = (u: number, v: number) => bilinearMask(land, MASK_W, MASK_H, u, v) > 0.5;
+  const heightAt = (u: number, v: number) => {
+    const cov = bilinearHeight(coverage, MASK_W, MASK_H, u, v);
+    const t = THREE.MathUtils.smoothstep(0.22, 0.62, cov);
+    return THREE.MathUtils.lerp(WATER_Y, bilinearHeight(heights, MASK_W, MASK_H, u, v), t);
+  };
+  const isLandAt = (u: number, v: number) => bilinearHeight(coverage, MASK_W, MASK_H, u, v) > 0.35;
 
   return {
     geometry,
