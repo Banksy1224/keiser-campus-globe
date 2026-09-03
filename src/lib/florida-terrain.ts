@@ -3,12 +3,14 @@
 // any painted poster.
 
 import * as THREE from "three";
+import { mergeGeometries } from "three/examples/jsm/utils/BufferGeometryUtils.js";
 import {
   LAND_MAX_Y,
   LAND_MIN_Y,
   WATER_Y,
   coastWorldBounds,
   indexCoast,
+  latLngToMap,
   mapToLatLng,
   pointInFlorida,
   type IndexedPolygon,
@@ -128,111 +130,76 @@ function landColor(inland: number, lat: number, lng: number): [number, number, n
   return [r, g, b];
 }
 
-function buildMesh(
-  coverage: Float32Array,
-  heights: Float32Array,
-  mw: number,
-  mh: number,
-  bounds: { minX: number; maxX: number; minZ: number; maxZ: number },
-  segsX: number,
-  segsZ: number,
-): THREE.BufferGeometry {
-  const positions: number[] = [];
-  const colors: number[] = [];
-  const indices: number[] = [];
-  const spanX = bounds.maxX - bounds.minX;
-  const spanZ = bounds.maxZ - bounds.minZ;
+function ringToPoints(ring: number[][]): THREE.Vector2[] {
+  const pts = ring.map(([lng, lat]) => {
+    const [x, , z] = latLngToMap(lat, lng);
+    return new THREE.Vector2(x, z);
+  });
+  if (pts.length > 1 && pts[0].distanceTo(pts[pts.length - 1]) < 1e-6) pts.pop();
+  if (THREE.ShapeUtils.isClockWise(pts)) pts.reverse();
+  return pts;
+}
 
-  const sampleC = (u: number, v: number) => bilinear(coverage, mw, mh, u, v);
-  const sampleH = (u: number, v: number) => bilinear(heights, mw, mh, u, v);
-  const worldOf = (u: number, v: number): [number, number] => [
-    bounds.minX + u * spanX,
-    bounds.minZ + v * spanZ,
-  ];
-
-  const cols = segsX + 1;
-  const gridY: number[] = [];
-  const gridC: number[] = [];
-  for (let iz = 0; iz <= segsZ; iz++) {
-    for (let ix = 0; ix <= segsX; ix++) {
-      const u = ix / segsX;
-      const v = iz / segsZ;
-      const cov = sampleC(u, v);
-      const t = THREE.MathUtils.smoothstep(0.28, 0.66, cov);
-      gridC.push(cov);
-      gridY.push(THREE.MathUtils.lerp(LAND_MIN_Y, Math.max(LAND_MIN_Y, sampleH(u, v)), t));
+function extrudeCoast(polys: IndexedPolygon[], heightAt: (x: number, z: number) => number): THREE.BufferGeometry {
+  const geos: THREE.BufferGeometry[] = [];
+  const depth = LAND_MIN_Y - (WATER_Y - 0.08);
+  for (const poly of polys) {
+    if (poly.outer.length < 4) continue;
+    const outer = ringToPoints(poly.outer);
+    if (outer.length < 3) continue;
+    const shape = new THREE.Shape(outer);
+    for (const hole of poly.holes) {
+      const hp = ringToPoints(hole);
+      if (hp.length < 3) continue;
+      if (!THREE.ShapeUtils.isClockWise(hp)) hp.reverse();
+      shape.holes.push(new THREE.Path(hp));
     }
-  }
-
-  const vertId = new Int32Array((segsX + 1) * (segsZ + 1)).fill(-1);
-  const ensure = (ix: number, iz: number) => {
-    const gi = iz * cols + ix;
-    if (vertId[gi] >= 0) return vertId[gi];
-    const u = ix / segsX;
-    const v = iz / segsZ;
-    const [x, z] = worldOf(u, v);
-    const { lat, lng } = mapToLatLng(x, z);
-    const inland = THREE.MathUtils.clamp((sampleH(u, v) - LAND_MIN_Y) / (LAND_MAX_Y - LAND_MIN_Y), 0, 1);
-    const [cr, cg, cb] = landColor(inland, lat, lng);
-    positions.push(x, gridY[gi], z);
-    colors.push(cr, cg, cb);
-    vertId[gi] = positions.length / 3 - 1;
-    return vertId[gi];
-  };
-
-  for (let iz = 0; iz < segsZ; iz++) {
-    for (let ix = 0; ix < segsX; ix++) {
-      const c00 = gridC[iz * cols + ix];
-      const c10 = gridC[iz * cols + ix + 1];
-      const c11 = gridC[(iz + 1) * cols + ix + 1];
-      const c01 = gridC[(iz + 1) * cols + ix];
-      if (c00 + c10 + c11 + c01 < 0.45) continue;
-      const a = ensure(ix, iz);
-      const b = ensure(ix + 1, iz);
-      const c = ensure(ix + 1, iz + 1);
-      const d = ensure(ix, iz + 1);
-      // CCW from +Y so the peninsula top faces the camera (not the ocean).
-      indices.push(a, d, c, a, c, b);
+    let geo: THREE.ExtrudeGeometry;
+    try {
+      geo = new THREE.ExtrudeGeometry(shape, {
+        depth,
+        bevelEnabled: false,
+        curveSegments: 1,
+        steps: 1,
+      });
+    } catch {
+      continue;
     }
-  }
-
-  const wall = (ax: number, az: number, bx: number, bz: number) => {
-    const u0 = ax / segsX;
-    const v0 = az / segsZ;
-    const u1 = bx / segsX;
-    const v1 = bz / segsZ;
-    const [x0, z0] = worldOf(u0, v0);
-    const [x1, z1] = worldOf(u1, v1);
-    const y0 = gridY[az * cols + ax];
-    const y1 = gridY[bz * cols + bx];
-    if (y0 <= LAND_MIN_Y + 0.01 && y1 <= LAND_MIN_Y + 0.01) return;
-    const base = positions.length / 3;
-    positions.push(x0, y0, z0, x1, y1, z1, x1, WATER_Y - 0.1, z1, x0, WATER_Y - 0.1, z0);
-    colors.push(0.45, 0.4, 0.24, 0.45, 0.4, 0.24, 0.2, 0.22, 0.14, 0.2, 0.22, 0.14);
-    indices.push(base, base + 1, base + 2, base, base + 2, base + 3);
-  };
-
-  for (let iz = 0; iz <= segsZ; iz++) {
-    for (let ix = 0; ix < segsX; ix++) {
-      const a = gridC[iz * cols + ix] > 0.35;
-      const b = gridC[iz * cols + ix + 1] > 0.35;
-      if (a !== b) wall(ix, iz, ix + 1, iz);
+    // Shape is XZ in the XY plane; extrude +Z, then map Z → Y.
+    geo.rotateX(-Math.PI / 2);
+    geo.translate(0, WATER_Y - 0.08, 0);
+    const pos = geo.getAttribute("position") as THREE.BufferAttribute;
+    const colors = new Float32Array(pos.count * 3);
+    for (let i = 0; i < pos.count; i++) {
+      const x = pos.getX(i);
+      const y = pos.getY(i);
+      const z = pos.getZ(i);
+      const top = y > LAND_MIN_Y - 0.08;
+      if (top) {
+        const lifted = heightAt(x, z);
+        pos.setY(i, lifted);
+        const { lat, lng } = mapToLatLng(x, z);
+        const inland = THREE.MathUtils.clamp((lifted - LAND_MIN_Y) / (LAND_MAX_Y - LAND_MIN_Y), 0, 1);
+        const [r, g, b] = landColor(inland, lat, lng);
+        colors[i * 3] = r;
+        colors[i * 3 + 1] = g;
+        colors[i * 3 + 2] = b;
+      } else {
+        colors[i * 3] = 0.42;
+        colors[i * 3 + 1] = 0.36;
+        colors[i * 3 + 2] = 0.2;
+      }
     }
+    geo.setAttribute("color", new THREE.Float32BufferAttribute(colors, 3));
+    geo.computeVertexNormals();
+    geos.push(geo);
   }
-  for (let iz = 0; iz < segsZ; iz++) {
-    for (let ix = 0; ix <= segsX; ix++) {
-      const a = gridC[iz * cols + ix] > 0.35;
-      const b = gridC[(iz + 1) * cols + ix] > 0.35;
-      if (a !== b) wall(ix, iz, ix, iz + 1);
-    }
+  const merged = mergeGeometries(geos, false);
+  for (const g of geos) g.dispose();
+  if (!merged) {
+    return new THREE.BoxGeometry(0.1, 0.1, 0.1);
   }
-
-  const geo = new THREE.BufferGeometry();
-  geo.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
-  geo.setAttribute("color", new THREE.Float32BufferAttribute(colors, 3));
-  geo.setIndex(indices);
-  geo.computeVertexNormals();
-  return geo;
+  return merged;
 }
 
 export function buildFloridaTerrain(quality: "high" | "low" = "high"): FloridaTerrain {
@@ -284,10 +251,6 @@ export function buildFloridaTerrain(quality: "high" | "low" = "high"): FloridaTe
     }
   }
 
-  const segsX = quality === "high" ? 300 : 160;
-  const segsZ = quality === "high" ? 250 : 130;
-  const geometry = buildMesh(coverage, heights, mw, mh, bounds, segsX, segsZ);
-
   const uvOf = (wx: number, wz: number) => ({
     u: (wx - bounds.minX) / spanX,
     v: (wz - bounds.minZ) / spanZ,
@@ -305,6 +268,8 @@ export function buildFloridaTerrain(quality: "high" | "low" = "high"): FloridaTe
     const { u, v } = uvOf(wx, wz);
     return bilinear(coverage, mw, mh, u, v);
   };
+
+  const geometry = extrudeCoast(polys, heightAt);
 
   return {
     geometry,

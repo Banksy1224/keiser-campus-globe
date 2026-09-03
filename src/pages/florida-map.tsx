@@ -172,8 +172,9 @@ function Peninsula({ terrain }: { terrain: FloridaTerrain }) {
   return (
     <mesh geometry={terrain.geometry} receiveShadow castShadow>
       <meshStandardMaterial
+        color="#3f7a32"
         vertexColors
-        roughness={0.9}
+        roughness={0.88}
         metalness={0.02}
         polygonOffset
         polygonOffsetFactor={1}
