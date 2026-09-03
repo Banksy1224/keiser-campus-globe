@@ -567,11 +567,11 @@ function FloridaWorld({
     <>
       <PaintedSky />
       <fog attach="fog" args={["#9ec9e6", 28, 78]} />
-      <hemisphereLight args={["#e8f2ff", "#4a6a32", 0.85]} />
-      <ambientLight intensity={0.22} />
+      <hemisphereLight args={["#d5e8ff", "#3d5a28", 0.62]} />
+      <ambientLight intensity={0.16} />
       <directionalLight
         position={[12, 16, 7]}
-        intensity={1.65}
+        intensity={1.35}
         castShadow={!isMobile()}
         shadow-mapSize-width={1024}
         shadow-mapSize-height={1024}

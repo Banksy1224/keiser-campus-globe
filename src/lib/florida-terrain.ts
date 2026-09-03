@@ -104,26 +104,24 @@ function coastDistance(land: Uint8Array, w: number, h: number): Float32Array {
 }
 
 function landColor(inland: number, lat: number, lng: number): [number, number, number] {
-  const beach = 1 - THREE.MathUtils.smoothstep(0.08, 0.38, inland);
-  const everglades = lat < 26.6 && lng > -81.6 && inland > 0.25 ? 1 : 0;
-  const ridge = lat > 27.2 && lat < 28.6 && lng > -82.0 && lng < -81.2 ? 0.35 : 0;
-  const sand: [number, number, number] = [0.9, 0.82, 0.58];
-  const grass: [number, number, number] = [0.48, 0.7, 0.34];
-  const pine: [number, number, number] = [0.34, 0.58, 0.3];
-  const wet: [number, number, number] = [0.3, 0.52, 0.38];
-  const hill: [number, number, number] = [0.52, 0.64, 0.36];
-  const inlandMix = THREE.MathUtils.smoothstep(0.2, 0.85, inland);
+  const beach = 1 - THREE.MathUtils.smoothstep(0.04, 0.22, inland);
+  const everglades = lat < 26.55 && lng > -81.55 && inland > 0.18 ? 0.55 : 0;
+  const ridge = lat > 27.2 && lat < 28.6 && lng > -82.0 && lng < -81.2 ? 0.28 : 0;
+  const sand: [number, number, number] = [0.82, 0.74, 0.48];
+  const grass: [number, number, number] = [0.28, 0.52, 0.2];
+  const pine: [number, number, number] = [0.2, 0.4, 0.18];
+  const wet: [number, number, number] = [0.18, 0.38, 0.28];
+  const hill: [number, number, number] = [0.34, 0.46, 0.22];
+  const inlandMix = THREE.MathUtils.smoothstep(0.15, 0.8, inland);
   let r = grass[0] * (1 - inlandMix) + pine[0] * inlandMix;
   let g = grass[1] * (1 - inlandMix) + pine[1] * inlandMix;
   let b = grass[2] * (1 - inlandMix) + pine[2] * inlandMix;
   r = r * (1 - beach) + sand[0] * beach;
   g = g * (1 - beach) + sand[1] * beach;
   b = b * (1 - beach) + sand[2] * beach;
-  if (everglades) {
-    r = r * 0.55 + wet[0] * 0.45;
-    g = g * 0.55 + wet[1] * 0.45;
-    b = b * 0.55 + wet[2] * 0.45;
-  }
+  r = r * (1 - everglades) + wet[0] * everglades;
+  g = g * (1 - everglades) + wet[1] * everglades;
+  b = b * (1 - everglades) + wet[2] * everglades;
   r = r * (1 - ridge) + hill[0] * ridge;
   g = g * (1 - ridge) + hill[1] * ridge;
   b = b * (1 - ridge) + hill[2] * ridge;
@@ -174,7 +172,7 @@ function buildMesh(
     const v = iz / segsZ;
     const [x, z] = worldOf(u, v);
     const { lat, lng } = mapToLatLng(x, z);
-    const inland = THREE.MathUtils.clamp(sampleH(u, v) / LAND_MAX_Y, 0, 1);
+    const inland = THREE.MathUtils.clamp((sampleH(u, v) - LAND_MIN_Y) / (LAND_MAX_Y - LAND_MIN_Y), 0, 1);
     const [cr, cg, cb] = landColor(inland, lat, lng);
     positions.push(x, gridY[gi], z);
     colors.push(cr, cg, cb);
@@ -188,7 +186,7 @@ function buildMesh(
       const c10 = gridC[iz * cols + ix + 1];
       const c11 = gridC[(iz + 1) * cols + ix + 1];
       const c01 = gridC[(iz + 1) * cols + ix];
-      if (c00 + c10 + c11 + c01 < 0.7) continue;
+      if (c00 + c10 + c11 + c01 < 0.45) continue;
       const a = ensure(ix, iz);
       const b = ensure(ix + 1, iz);
       const c = ensure(ix + 1, iz + 1);
@@ -264,7 +262,7 @@ export function buildFloridaTerrain(quality: "high" | "low" = "high"): FloridaTe
     }
   }
 
-  const coverage = blur(land, mw, mh, 2);
+  const coverage = blur(land, mw, mh, 4);
   const cdist = coastDistance(land, mw, mh);
   const heights = new Float32Array(mw * mh);
   for (let y = 0; y < mh; y++) {
@@ -286,8 +284,8 @@ export function buildFloridaTerrain(quality: "high" | "low" = "high"): FloridaTe
     }
   }
 
-  const segsX = quality === "high" ? 220 : 130;
-  const segsZ = quality === "high" ? 180 : 108;
+  const segsX = quality === "high" ? 300 : 160;
+  const segsZ = quality === "high" ? 250 : 130;
   const geometry = buildMesh(coverage, heights, mw, mh, bounds, segsX, segsZ);
 
   const uvOf = (wx: number, wz: number) => ({
