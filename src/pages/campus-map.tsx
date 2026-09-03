@@ -933,7 +933,7 @@ export default function CampusMap() {
       : viewMode === "florida"
         ? mapIntro
           ? "Florida flyover · skip anytime"
-          : "Drag to orbit · click a campus or the legend to fly in"
+          : "Drag to orbit the peninsula · click a campus to fly in"
         : "Drag to orbit · scroll to zoom · click a campus to fly in";
 
   const listCampuses = viewMode === "florida" ? floridaMapCampuses() : visibleCampuses;

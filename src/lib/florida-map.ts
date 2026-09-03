@@ -2,13 +2,13 @@
 //
 // Coordinates are image-space fractions from the TOP-LEFT of
 // `public/maps/keiser-florida-campuses.jpeg` (1536×1024). They were
-// measured from the yellow numbered badges on that artwork so the
-// pulse sits on the real illustration, not a lat/lng guess.
+// measured from the yellow numbered badges on that artwork so each
+// standing campus sits on the real illustration, not a lat/lng guess.
 //
-// Miami (#19) has three yellow badges on this poster (two southern
-// buildings plus one just south of Fort Lauderdale); all share campusId
-// "miami" and all pulse. Flagship (#6) and West Palm Beach (#17) stay
-// separate. No other campuses are invented.
+// Miami (#19) has two southern building illustrations (plus a third
+// yellow badge just south of Fort Lauderdale on this poster); all share
+// campusId "miami" and all pulse. Flagship (#6) and West Palm Beach (#17)
+// stay separate. No other campuses are invented.
 
 import { campusById, resolveCampusId, type Campus } from "./campus-data";
 
@@ -24,9 +24,14 @@ export function sameMapCampus(a: string | null | undefined, b: string | null | u
 
 export const FLORIDA_MAP_ASSET = "maps/keiser-florida-campuses.jpeg";
 
-/** Plane size in scene units. Matches the JPEG aspect (1536×1024). */
-export const MAP_WIDTH = 15;
-export const MAP_HEIGHT = 10;
+/** Peninsula footprint in scene units (artwork is 1536×1024). */
+export const MAP_WIDTH = 18;
+export const MAP_HEIGHT = 12;
+
+/** Water surface. Land sits above this so the coast has a cliff. */
+export const WATER_Y = -0.1;
+export const LAND_MIN_Y = 0.14;
+export const LAND_MAX_Y = 0.52;
 
 export interface MapHotspot {
   campusId: string;
@@ -66,12 +71,14 @@ export const MAP_HOTSPOTS: MapHotspot[] = [
   { campusId: "tampa", number: 16, u: 0.316, v: 0.344 },
   { campusId: "west-palm-beach", number: 17, u: 0.66, v: 0.609 },
   { campusId: "fort-lauderdale", number: 18, u: 0.659, v: 0.7 },
+  // #19 — badge just south of Fort Lauderdale (on the poster).
   { campusId: "miami", number: 19, u: 0.658, v: 0.805 },
+  // #19 — the two southern Miami buildings (both pulse).
   { campusId: "miami", number: 19, u: 0.524, v: 0.858 },
   { campusId: "miami", number: 19, u: 0.604, v: 0.861 },
 ];
 
-/** Clickable rows on the illustrated right-hand legend. */
+/** Clickable rows on the illustrated right-hand legend (2D overlay / leftover). */
 const LEGEND_V = [
   0.092, 0.127, 0.161, 0.196, 0.231, 0.266, 0.301, 0.336, 0.371, 0.406, 0.441, 0.475, 0.511, 0.546,
   0.581, 0.615, 0.651, 0.685, 0.72,
@@ -150,23 +157,65 @@ export function hotspotsFor(campusId: string): MapHotspot[] {
   return MAP_HOTSPOTS.filter((h) => mapCampusId(h.campusId) === resolved);
 }
 
-/** World position of a UV point on the map plane (XZ, Y up). */
+/** World position of a UV point on the peninsula (XZ, Y up). `v` is image-top. */
 export function uvToWorld(u: number, v: number, y = 0): [number, number, number] {
   return [(u - 0.5) * MAP_WIDTH, y, (v - 0.5) * MAP_HEIGHT];
 }
 
+export type HeightSampler = (u: number, v: number) => number;
+
+const DEFAULT_HEIGHT: HeightSampler = () => 0.22;
+
+/** Building foot: a touch south of the yellow badge so the cutout sits on land. */
+export function hotspotFoot(spot: MapHotspot): { u: number; v: number } {
+  return { u: spot.u, v: Math.min(0.98, spot.v + 0.028) };
+}
+
+export interface CampusFocus {
+  x: number;
+  y: number;
+  z: number;
+  span: number;
+}
+
 /** Centroid (and optional span) of one or more hotspots, in world space. */
-export function focusOf(campusId: string): { x: number; z: number; span: number } {
+export function focusOf(campusId: string, heightAt: HeightSampler = DEFAULT_HEIGHT): CampusFocus {
   const spots = hotspotsFor(campusId);
-  if (!spots.length) return { x: -1.2, z: -0.4, span: 2.4 };
-  const pts = spots.map((s) => uvToWorld(s.u, s.v + 0.02));
+  if (!spots.length) return { x: -1.4, y: 0.22, z: -0.3, span: 2.6 };
+  const pts = spots.map((s) => {
+    const foot = hotspotFoot(s);
+    return uvToWorld(foot.u, foot.v, heightAt(foot.u, foot.v));
+  });
   const x = pts.reduce((a, p) => a + p[0], 0) / pts.length;
+  const y = pts.reduce((a, p) => a + p[1], 0) / pts.length;
   const z = pts.reduce((a, p) => a + p[2], 0) / pts.length;
-  let span = 1.1;
+  let span = 1.15;
   if (pts.length > 1) {
-    const dx = pts[0][0] - pts[1][0];
-    const dz = pts[0][2] - pts[1][2];
-    span = Math.max(1.6, Math.hypot(dx, dz) * 1.8);
+    let maxD = 0;
+    for (let i = 0; i < pts.length; i++) {
+      for (let j = i + 1; j < pts.length; j++) {
+        maxD = Math.max(maxD, Math.hypot(pts[i][0] - pts[j][0], pts[i][2] - pts[j][2]));
+      }
+    }
+    span = Math.max(1.7, maxD * 1.55);
   }
-  return { x, z, span };
+  return { x, y, z, span };
+}
+
+/** Resting aerial viewpoint after the intro — SW of the peninsula, looking NE. */
+export const OVERVIEW_LOOK = uvToWorld(0.4, 0.46, 0.12);
+export const OVERVIEW_POS: [number, number, number] = [
+  OVERVIEW_LOOK[0] - 2.15,
+  6.35,
+  OVERVIEW_LOOK[2] + 7.05,
+];
+
+/** Approach a campus from the south-southeast and descend onto it. */
+export function approachOf(campusId: string, heightAt: HeightSampler = DEFAULT_HEIGHT) {
+  const f = focusOf(campusId, heightAt);
+  const dist = 2.05 + f.span * 0.62;
+  return {
+    look: [f.x, f.y + 0.42, f.z] as [number, number, number],
+    pos: [f.x - 0.22, f.y + dist * 0.58 + 0.35, f.z + dist * 0.82] as [number, number, number],
+  };
 }
