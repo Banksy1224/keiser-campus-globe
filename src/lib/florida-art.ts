@@ -431,7 +431,7 @@ function buildPeninsulaGeometry(
       const c10 = gridC[iz * cols + ix + 1];
       const c11 = gridC[(iz + 1) * cols + ix + 1];
       const c01 = gridC[(iz + 1) * cols + ix];
-      if (c00 + c10 + c11 + c01 < 0.9) continue;
+      if (c00 + c10 + c11 + c01 < 0.6) continue;
       const a = ensure(ix, iz);
       const b = ensure(ix + 1, iz);
       const c = ensure(ix + 1, iz + 1);
