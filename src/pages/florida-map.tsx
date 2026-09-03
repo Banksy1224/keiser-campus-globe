@@ -224,14 +224,14 @@ function Vegetation({ terrain }: { terrain: FloridaTerrain }) {
 function campusLayout(campus: Campus) {
   const flagship = Boolean(campus.flagship);
   const count = campus.skyline.length;
-  const ring = flagship ? 0.16 : 0.12;
+  const ring = flagship ? 0.2 : 0.15;
   return campus.skyline.map((h, i) => {
     const angle = (i / count) * Math.PI * 2 - Math.PI / 2;
     return {
       x: Math.cos(angle) * ring,
       z: Math.sin(angle) * ring,
-      h: (flagship ? 0.22 : 0.14) + h * (flagship ? 0.55 : 0.38),
-      w: flagship ? 0.09 : 0.07,
+      h: (flagship ? 0.32 : 0.2) + h * (flagship ? 0.72 : 0.5),
+      w: flagship ? 0.11 : 0.085,
     };
   });
 }
@@ -566,11 +566,12 @@ function FloridaWorld({
   return (
     <>
       <PaintedSky />
-      <fog attach="fog" args={["#9ec9e6", 24, 70]} />
-      <hemisphereLight args={["#d7e9ff", "#3d5a2a", 0.55]} />
+      <fog attach="fog" args={["#9ec9e6", 28, 78]} />
+      <hemisphereLight args={["#e8f2ff", "#4a6a32", 0.85]} />
+      <ambientLight intensity={0.22} />
       <directionalLight
         position={[12, 16, 7]}
-        intensity={1.4}
+        intensity={1.65}
         castShadow={!isMobile()}
         shadow-mapSize-width={1024}
         shadow-mapSize-height={1024}

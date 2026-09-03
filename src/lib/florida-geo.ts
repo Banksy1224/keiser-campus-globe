@@ -28,9 +28,9 @@ export const DEG_SCALE = 2.68;
 export const LAT_ORIGIN = 27.72;
 export const LNG_ORIGIN = -83.55;
 
-export const WATER_Y = -0.12;
-export const LAND_MIN_Y = 0.2;
-export const LAND_MAX_Y = 0.62;
+export const WATER_Y = -0.16;
+export const LAND_MIN_Y = 0.32;
+export const LAND_MAX_Y = 0.92;
 
 /** Equirectangular projection centered on Florida. +X east, +Z south, +Y up. */
 export function latLngToMap(lat: number, lng: number, y = 0): [number, number, number] {

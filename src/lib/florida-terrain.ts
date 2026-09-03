@@ -107,11 +107,11 @@ function landColor(inland: number, lat: number, lng: number): [number, number, n
   const beach = 1 - THREE.MathUtils.smoothstep(0.08, 0.38, inland);
   const everglades = lat < 26.6 && lng > -81.6 && inland > 0.25 ? 1 : 0;
   const ridge = lat > 27.2 && lat < 28.6 && lng > -82.0 && lng < -81.2 ? 0.35 : 0;
-  const sand: [number, number, number] = [0.86, 0.78, 0.55];
-  const grass: [number, number, number] = [0.38, 0.58, 0.28];
-  const pine: [number, number, number] = [0.26, 0.46, 0.24];
-  const wet: [number, number, number] = [0.22, 0.42, 0.32];
-  const hill: [number, number, number] = [0.42, 0.52, 0.3];
+  const sand: [number, number, number] = [0.9, 0.82, 0.58];
+  const grass: [number, number, number] = [0.48, 0.7, 0.34];
+  const pine: [number, number, number] = [0.34, 0.58, 0.3];
+  const wet: [number, number, number] = [0.3, 0.52, 0.38];
+  const hill: [number, number, number] = [0.52, 0.64, 0.36];
   const inlandMix = THREE.MathUtils.smoothstep(0.2, 0.85, inland);
   let r = grass[0] * (1 - inlandMix) + pine[0] * inlandMix;
   let g = grass[1] * (1 - inlandMix) + pine[1] * inlandMix;
@@ -193,7 +193,8 @@ function buildMesh(
       const b = ensure(ix + 1, iz);
       const c = ensure(ix + 1, iz + 1);
       const d = ensure(ix, iz + 1);
-      indices.push(a, b, c, a, c, d);
+      // CCW from +Y so the peninsula top faces the camera (not the ocean).
+      indices.push(a, d, c, a, c, b);
     }
   }
 
@@ -208,8 +209,8 @@ function buildMesh(
     const y1 = gridY[bz * cols + bx];
     if (y0 <= LAND_MIN_Y + 0.01 && y1 <= LAND_MIN_Y + 0.01) return;
     const base = positions.length / 3;
-    positions.push(x0, y0, z0, x1, y1, z1, x1, WATER_Y - 0.08, z1, x0, WATER_Y - 0.08, z0);
-    colors.push(0.34, 0.32, 0.2, 0.34, 0.32, 0.2, 0.16, 0.18, 0.12, 0.16, 0.18, 0.12);
+    positions.push(x0, y0, z0, x1, y1, z1, x1, WATER_Y - 0.1, z1, x0, WATER_Y - 0.1, z0);
+    colors.push(0.45, 0.4, 0.24, 0.45, 0.4, 0.24, 0.2, 0.22, 0.14, 0.2, 0.22, 0.14);
     indices.push(base, base + 1, base + 2, base, base + 2, base + 3);
   };
 
