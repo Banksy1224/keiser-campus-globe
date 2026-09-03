@@ -1,26 +1,23 @@
 import { Suspense, useEffect, useMemo, useRef } from "react";
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
-import { OrbitControls, useTexture } from "@react-three/drei";
+import { Html, OrbitControls } from "@react-three/drei";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 import * as THREE from "three";
-import { campusById, FLAME_GOLD, type Campus } from "../lib/campus-data";
-import { buildFloridaArt, type FloridaArt } from "../lib/florida-art";
+import { FLAME_GOLD, type Campus } from "../lib/campus-data";
+import { WATER_Y, latLngToMap } from "../lib/florida-geo";
+import { buildFloridaTerrain, type FloridaTerrain } from "../lib/florida-terrain";
 import {
-  FLORIDA_MAP_ASSET,
-  MAP_HOTSPOTS,
+  INTRO_WAYPOINTS,
   OVERVIEW_LOOK,
   OVERVIEW_POS,
-  WATER_Y,
   approachOf,
-  hotspotFoot,
+  floridaSitePoses,
   sameMapCampus,
-  uvToWorld,
   type HeightSampler,
+  type SitePose,
 } from "../lib/florida-map";
 
-const asset = (path: string) => `${import.meta.env.BASE_URL}${path}`;
-
-const INTRO_SECONDS = 8.6;
+const INTRO_SECONDS = 11.2;
 const FLY_SECONDS = 1.55;
 const GOLD = new THREE.Color(FLAME_GOLD);
 
@@ -39,15 +36,6 @@ function setView(camera: THREE.Camera, pos: THREE.Vector3, look: THREE.Vector3, 
   if (roll) camera.rotateZ(roll);
 }
 
-function useFloridaArtFromTexture(texture: THREE.Texture): FloridaArt {
-  const art = useMemo(() => {
-    const img = texture.image as CanvasImageSource;
-    return buildFloridaArt(img, isMobile() ? "low" : "high");
-  }, [texture]);
-  useEffect(() => () => art.dispose(), [art]);
-  return art;
-}
-
 function PaintedSky() {
   const mat = useMemo(
     () =>
@@ -55,9 +43,9 @@ function PaintedSky() {
         side: THREE.BackSide,
         depthWrite: false,
         uniforms: {
-          uZenith: { value: new THREE.Color("#3d7ec8") },
-          uHorizon: { value: new THREE.Color("#c8e4f6") },
-          uHaze: { value: new THREE.Color("#f0d9a8") },
+          uZenith: { value: new THREE.Color("#2f6fb8") },
+          uHorizon: { value: new THREE.Color("#b9daf2") },
+          uHaze: { value: new THREE.Color("#e8d3a4") },
         },
         vertexShader: `
           varying vec3 vDir;
@@ -83,7 +71,7 @@ function PaintedSky() {
   );
   return (
     <mesh>
-      <sphereGeometry args={[80, 32, 20]} />
+      <sphereGeometry args={[90, 32, 20]} />
       <primitive object={mat} attach="material" />
     </mesh>
   );
@@ -93,11 +81,10 @@ function Ocean() {
   const mat = useMemo(
     () =>
       new THREE.ShaderMaterial({
-        transparent: false,
         uniforms: {
           uTime: { value: 0 },
-          uDeep: { value: new THREE.Color("#0c5a88") },
-          uShallow: { value: new THREE.Color("#3ad4dc") },
+          uDeep: { value: new THREE.Color("#0a4e7a") },
+          uShallow: { value: new THREE.Color("#2ec4ce") },
           uFoam: { value: new THREE.Color("#e7f8fb") },
         },
         vertexShader: `
@@ -105,8 +92,8 @@ function Ocean() {
           uniform float uTime;
           void main() {
             vec3 p = position;
-            p.y += sin(p.x * 1.55 + uTime * 0.7) * 0.018
-                 + sin(p.z * 1.15 + p.x * 0.35 + uTime * 0.85) * 0.014;
+            p.y += sin(p.x * 1.35 + uTime * 0.7) * 0.02
+                 + sin(p.z * 1.05 + p.x * 0.32 + uTime * 0.85) * 0.016;
             vec4 w = modelMatrix * vec4(p, 1.0);
             vWorld = w.xyz;
             gl_Position = projectionMatrix * viewMatrix * w;
@@ -119,16 +106,13 @@ function Ocean() {
           uniform vec3 uShallow;
           uniform vec3 uFoam;
           void main() {
-            vec2 c = vec2(-1.35, -0.15);
-            float d = length(vWorld.xz - c);
-            float shore = smoothstep(2.1, 10.5, d);
+            float d = length(vWorld.xz);
+            float shore = smoothstep(3.2, 14.0, d);
             vec3 col = mix(uShallow, uDeep, shore);
-            float w = sin(vWorld.x * 2.3 + uTime * 0.65) * cos(vWorld.z * 1.7 + uTime * 0.5);
-            col += 0.05 * w;
-            float foam = smoothstep(2.6, 1.4, d) * (0.35 + 0.25 * sin(uTime * 1.4 + d * 4.0));
-            col = mix(col, uFoam, foam * 0.45);
-            float spec = pow(max(0.0, 1.0 - shore), 2.0) * 0.12;
-            col += spec;
+            float w = sin(vWorld.x * 2.1 + uTime * 0.65) * cos(vWorld.z * 1.55 + uTime * 0.5);
+            col += 0.045 * w;
+            float foam = smoothstep(5.5, 2.2, d) * (0.28 + 0.22 * sin(uTime * 1.4 + d * 3.2));
+            col = mix(col, uFoam, foam * 0.35);
             gl_FragColor = vec4(col, 1.0);
           }
         `,
@@ -140,8 +124,8 @@ function Ocean() {
     mat.uniforms.uTime.value += dt;
   });
   return (
-    <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, WATER_Y, 0]}>
-      <planeGeometry args={[56, 56, 72, 72]} />
+    <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, WATER_Y, 0]} receiveShadow>
+      <planeGeometry args={[72, 72, 80, 80]} />
       <primitive object={mat} attach="material" />
     </mesh>
   );
@@ -184,66 +168,14 @@ function StylizedCloud({
   );
 }
 
-function TitlePlaque() {
-  const texture = useMemo(() => {
-    const c = document.createElement("canvas");
-    c.width = 1024;
-    c.height = 256;
-    const ctx = c.getContext("2d")!;
-    ctx.fillStyle = "#0b1c33";
-    ctx.fillRect(0, 0, 1024, 256);
-    ctx.strokeStyle = "#E8BC58";
-    ctx.lineWidth = 10;
-    ctx.strokeRect(8, 8, 1008, 240);
-    ctx.fillStyle = "#E8BC58";
-    ctx.textAlign = "center";
-    ctx.font = "600 52px 'Barlow Condensed', Impact, sans-serif";
-    ctx.fillText("KEISER UNIVERSITY", 512, 100);
-    ctx.font = "700 78px 'Barlow Condensed', Impact, sans-serif";
-    ctx.fillText("FLORIDA CAMPUSES", 512, 186);
-    const t = new THREE.CanvasTexture(c);
-    t.colorSpace = THREE.SRGBColorSpace;
-    return t;
-  }, []);
-  useEffect(() => () => texture.dispose(), [texture]);
+function Peninsula({ terrain }: { terrain: FloridaTerrain }) {
   return (
-    <group position={[-6.6, 2.35, -3.4]} rotation={[0, 0.55, 0]}>
-      <mesh>
-        <planeGeometry args={[4.4, 1.1]} />
-        <meshBasicMaterial map={texture} toneMapped={false} side={THREE.DoubleSide} />
-      </mesh>
-    </group>
-  );
-}
-
-function CompassRose() {
-  return (
-    <group position={[-6.2, 0.08, 3.6]} rotation={[0, 0.2, 0]}>
-      <mesh rotation={[-Math.PI / 2, 0, 0]}>
-        <ringGeometry args={[0.55, 0.64, 32]} />
-        <meshStandardMaterial color={FLAME_GOLD} metalness={0.4} roughness={0.35} />
-      </mesh>
-      <mesh position={[0, 0.04, -0.28]} rotation={[0.15, 0, 0]}>
-        <coneGeometry args={[0.09, 0.48, 4]} />
-        <meshStandardMaterial color={FLAME_GOLD} />
-      </mesh>
-      <mesh position={[0, 0.04, 0.28]} rotation={[Math.PI - 0.15, 0, 0]}>
-        <coneGeometry args={[0.08, 0.4, 4]} />
-        <meshStandardMaterial color="#f4e7b8" />
-      </mesh>
-    </group>
-  );
-}
-
-function Peninsula({ art }: { art: FloridaArt }) {
-  return (
-    <mesh geometry={art.geometry} receiveShadow castShadow>
+    <mesh geometry={terrain.geometry} receiveShadow castShadow>
       <meshStandardMaterial
-        map={art.landTexture}
+        color="#3f7a32"
         vertexColors
         roughness={0.88}
         metalness={0.02}
-        toneMapped={false}
         polygonOffset
         polygonOffsetFactor={1}
         polygonOffsetUnits={1}
@@ -252,178 +184,230 @@ function Peninsula({ art }: { art: FloridaArt }) {
   );
 }
 
-function YBillboard({
-  position,
-  children,
-}: {
-  position: [number, number, number];
-  children: React.ReactNode;
-}) {
-  const ref = useRef<THREE.Group>(null);
-  const { camera } = useThree();
-  useFrame(() => {
-    if (!ref.current) return;
-    const p = ref.current.position;
-    ref.current.lookAt(camera.position.x, p.y, camera.position.z);
-  });
+function Vegetation({ terrain }: { terrain: FloridaTerrain }) {
+  const meshes = useMemo(() => {
+    const items: Array<{ x: number; y: number; z: number; s: number }> = [];
+    if (isMobile()) return items;
+    const { minX, maxX, minZ, maxZ } = terrain.bounds;
+    let seed = 7;
+    const rand = () => {
+      seed = (seed * 16807) % 2147483647;
+      return (seed - 1) / 2147483646;
+    };
+    for (let i = 0; i < 70 && items.length < 48; i++) {
+      const x = minX + rand() * (maxX - minX);
+      const z = minZ + rand() * (maxZ - minZ);
+      if (terrain.isLand(x, z) < 0.72) continue;
+      const y = terrain.heightAt(x, z);
+      items.push({ x, y, z, s: 0.7 + rand() * 0.55 });
+    }
+    return items;
+  }, [terrain]);
+
   return (
-    <group ref={ref} position={position}>
-      {children}
+    <group>
+      {meshes.map((t, i) => (
+        <group key={i} position={[t.x, t.y, t.z]} scale={t.s}>
+          <mesh position={[0, 0.12, 0]} castShadow>
+            <cylinderGeometry args={[0.018, 0.024, 0.24, 5]} />
+            <meshStandardMaterial color="#3a2b1a" />
+          </mesh>
+          <mesh position={[0, 0.32, 0]} castShadow>
+            <coneGeometry args={[0.14, 0.32, 6]} />
+            <meshStandardMaterial color="#2d6a38" roughness={1} />
+          </mesh>
+        </group>
+      ))}
+    </group>
+  );
+}
+
+function campusLayout(campus: Campus) {
+  const flagship = Boolean(campus.flagship);
+  const count = campus.skyline.length;
+  const ring = flagship ? 0.2 : 0.15;
+  return campus.skyline.map((h, i) => {
+    const angle = (i / count) * Math.PI * 2 - Math.PI / 2;
+    return {
+      x: Math.cos(angle) * ring,
+      z: Math.sin(angle) * ring,
+      h: (flagship ? 0.32 : 0.2) + h * (flagship ? 0.72 : 0.5),
+      w: flagship ? 0.11 : 0.085,
+    };
+  });
+}
+
+function CampusCluster({
+  site,
+  groundY,
+  selected,
+  hovered,
+  onHover,
+  onSelect,
+}: {
+  site: SitePose;
+  groundY: number;
+  selected: boolean;
+  hovered: boolean;
+  onHover: (id: string | null) => void;
+  onSelect: (campus: Campus) => void;
+}) {
+  const group = useRef<THREE.Group>(null);
+  const buildings = useMemo(() => campusLayout(site.campus), [site.campus]);
+  const hot = selected || hovered;
+
+  useFrame((state) => {
+    if (!group.current) return;
+    if (prefersReducedMotion()) {
+      group.current.scale.setScalar(1);
+      return;
+    }
+    const t = state.clock.elapsedTime;
+    const s = selected ? 1 + 0.12 * (0.5 + 0.5 * Math.sin(t * 3.6)) : 1;
+    group.current.scale.setScalar(s);
+  });
+
+  return (
+    <group ref={group} position={[site.x, groundY, site.z]} userData={{ campusId: site.id }}>
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.012, 0]} receiveShadow>
+        <circleGeometry args={[site.campus.flagship ? 0.28 : 0.2, 22]} />
+        <meshStandardMaterial color="#1a2744" roughness={0.85} />
+      </mesh>
+      {buildings.map((b, i) => (
+        <mesh key={i} position={[b.x, b.h / 2, b.z]} castShadow>
+          <boxGeometry args={[b.w, b.h, b.w * 0.92]} />
+          <meshStandardMaterial
+            color={i % 3 === 0 ? "#1d2e57" : "#2a4686"}
+            roughness={0.55}
+            metalness={0.18}
+            emissive={selected ? FLAME_GOLD : "#000000"}
+            emissiveIntensity={selected ? 0.22 : 0}
+          />
+        </mesh>
+      ))}
+      {site.campus.flagship && (
+        <mesh position={[0, 0.55, 0]} castShadow>
+          <coneGeometry args={[0.055, 0.16, 5]} />
+          <meshStandardMaterial
+            color={FLAME_GOLD}
+            emissive={FLAME_GOLD}
+            emissiveIntensity={0.55}
+            roughness={0.3}
+          />
+        </mesh>
+      )}
+      <mesh position={[0, 0.42, 0]}>
+        <cylinderGeometry args={[0.018, 0.018, 0.36, 8]} />
+        <meshStandardMaterial color={FLAME_GOLD} metalness={0.45} roughness={0.35} />
+      </mesh>
+      <mesh position={[0, 0.64, 0]}>
+        <sphereGeometry args={[0.045, 12, 10]} />
+        <meshStandardMaterial
+          color={FLAME_GOLD}
+          emissive={FLAME_GOLD}
+          emissiveIntensity={hot ? 0.7 : 0.25}
+        />
+      </mesh>
+      <mesh
+        position={[0, 0.28, 0]}
+        onClick={(e) => {
+          e.stopPropagation();
+          onSelect(site.campus);
+        }}
+        onPointerOver={(e) => {
+          e.stopPropagation();
+          onHover(site.id);
+          document.body.style.cursor = "pointer";
+        }}
+        onPointerOut={() => {
+          onHover(null);
+          document.body.style.cursor = "auto";
+        }}
+      >
+        <sphereGeometry args={[hot ? 0.38 : 0.28, 12, 10]} />
+        <meshBasicMaterial transparent opacity={0} depthWrite={false} />
+      </mesh>
+      {selected && (
+        <>
+          <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.03, 0]}>
+            <ringGeometry args={[0.22, 0.34, 36]} />
+            <meshBasicMaterial
+              color={GOLD}
+              transparent
+              opacity={0.55}
+              depthWrite={false}
+              blending={THREE.AdditiveBlending}
+            />
+          </mesh>
+          <mesh position={[0, 0.3, 0]}>
+            <sphereGeometry args={[0.22, 16, 12]} />
+            <meshBasicMaterial
+              color={FLAME_GOLD}
+              transparent
+              opacity={0.22}
+              depthWrite={false}
+              blending={THREE.AdditiveBlending}
+            />
+          </mesh>
+        </>
+      )}
+      {(hot || selected) && (
+        <Html position={[0, 0.92, 0]} center style={{ pointerEvents: "none" }}>
+          <div className="whitespace-nowrap rounded-full border border-keiser-gold/60 bg-keiser-navy/90 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-keiser-gold shadow-lg">
+            {site.number} · {site.campus.city}
+          </div>
+        </Html>
+      )}
     </group>
   );
 }
 
 function CampusMarkers({
-  art,
+  sites,
+  terrain,
   selectedId,
   hoveredId,
   onHover,
   onSelect,
 }: {
-  art: FloridaArt;
+  sites: SitePose[];
+  terrain: FloridaTerrain;
   selectedId: string | null;
   hoveredId: string | null;
   onHover: (id: string | null) => void;
   onSelect: (campus: Campus) => void;
 }) {
-  const pulse = useRef<THREE.Group>(null);
-  const buildings = useRef<THREE.Group[]>([]);
-
-  useFrame((state) => {
-    const t = state.clock.elapsedTime;
-    const s = 1 + 0.14 * (0.5 + 0.5 * Math.sin(t * 3.5));
-    const glow = 0.35 + 0.4 * (0.5 + 0.5 * Math.sin(t * 3.5));
-    for (const g of buildings.current) {
-      if (!g) continue;
-      g.scale.setScalar(sameMapCampus(g.userData.campusId, selectedId) ? s : 1);
-    }
-    if (!pulse.current) return;
-    pulse.current.children.forEach((child) => {
-      child.scale.setScalar(s);
-      child.traverse((obj) => {
-        const mesh = obj as THREE.Mesh;
-        const mat = mesh.material as THREE.MeshBasicMaterial | undefined;
-        if (!mat || !("opacity" in mat) || !mat.userData?.pulse) return;
-        mat.opacity = glow;
-      });
-    });
-  });
-
   return (
     <group>
-      {art.sprites.map((sprite, i) => {
-        const campus = campusById(sprite.campusId);
-        if (!campus) return null;
-        const foot = hotspotFoot(sprite);
-        const y = art.heightAt(foot.u, foot.v);
-        const [x, , z] = uvToWorld(foot.u, foot.v, y);
-        const selected = sameMapCampus(selectedId, campus.id);
-        const hot = selected || sameMapCampus(hoveredId, campus.id);
-        return (
-          <group
-            key={`${sprite.campusId}-${i}`}
-            position={[x, y, z]}
-            userData={{ campusId: campus.id }}
-            ref={(el) => {
-              if (el) buildings.current[i] = el;
-            }}
-          >
-            <YBillboard position={[0, 0, 0]}>
-              <mesh position={[0, sprite.height / 2, 0]} castShadow>
-                <planeGeometry args={[sprite.width, sprite.height]} />
-                <meshBasicMaterial
-                  map={sprite.texture}
-                  transparent
-                  alphaTest={0.12}
-                  toneMapped={false}
-                  side={THREE.DoubleSide}
-                  depthWrite
-                />
-              </mesh>
-            </YBillboard>
-            <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.02, 0.02]}>
-              <circleGeometry args={[0.22, 20]} />
-              <meshBasicMaterial color="#0b1c33" transparent opacity={0.28} depthWrite={false} />
-            </mesh>
-            <mesh
-              position={[0, sprite.height * 0.45, 0]}
-              onClick={(e) => {
-                e.stopPropagation();
-                onSelect(campus);
-              }}
-              onPointerOver={(e) => {
-                e.stopPropagation();
-                onHover(campus.id);
-                document.body.style.cursor = "pointer";
-              }}
-              onPointerOut={() => {
-                onHover(null);
-                document.body.style.cursor = "auto";
-              }}
-            >
-              <sphereGeometry args={[hot ? 0.55 : 0.42, 12, 10]} />
-              <meshBasicMaterial transparent opacity={0} depthWrite={false} />
-            </mesh>
-          </group>
-        );
-      })}
-
-      <group ref={pulse}>
-        {selectedId &&
-          MAP_HOTSPOTS.filter((s) => sameMapCampus(s.campusId, selectedId)).map((s, i) => {
-            const foot = hotspotFoot(s);
-            const y = art.heightAt(foot.u, foot.v);
-            const [x, , z] = uvToWorld(foot.u, foot.v, y);
-            return (
-              <group key={`pulse-${s.campusId}-${i}`} position={[x, y + 0.04, z]}>
-                <mesh rotation={[-Math.PI / 2, 0, 0]}>
-                  <ringGeometry args={[0.2, 0.36, 40]} />
-                  <meshBasicMaterial
-                    color={GOLD}
-                    transparent
-                    opacity={0.55}
-                    depthWrite={false}
-                    blending={THREE.AdditiveBlending}
-                    userData={{ pulse: true }}
-                  />
-                </mesh>
-                <mesh>
-                  <sphereGeometry args={[0.28, 16, 12]} />
-                  <meshBasicMaterial
-                    color={FLAME_GOLD}
-                    transparent
-                    opacity={0.32}
-                    depthWrite={false}
-                    blending={THREE.AdditiveBlending}
-                    userData={{ pulse: true }}
-                  />
-                </mesh>
-              </group>
-            );
-          })}
-      </group>
+      {sites.map((site) => (
+        <CampusCluster
+          key={site.id}
+          site={site}
+          groundY={terrain.heightAt(site.x, site.z)}
+          selected={sameMapCampus(selectedId, site.id)}
+          hovered={sameMapCampus(hoveredId, site.id)}
+          onHover={onHover}
+          onSelect={onSelect}
+        />
+      ))}
     </group>
   );
 }
 
-function introCurves(heightAt: HeightSampler) {
-  const miami = approachOf("miami", heightAt);
-  const flag = approachOf("flagship", heightAt);
-  const orlando = approachOf("orlando", heightAt);
-  const jax = approachOf("jacksonville", heightAt);
-  const startPos = new THREE.Vector3(miami.pos[0] + 0.8, 1.05, miami.pos[2] + 1.35);
-  const startLook = new THREE.Vector3(miami.look[0], miami.look[1], miami.look[2] - 0.2);
-  const p1 = new THREE.Vector3(flag.pos[0] + 0.4, 2.15, flag.pos[2] + 0.9);
-  const l1 = new THREE.Vector3(...flag.look);
-  const p2 = new THREE.Vector3(orlando.pos[0] - 0.6, 3.4, orlando.pos[2] + 1.1);
-  const l2 = new THREE.Vector3(...orlando.look);
-  const p3 = new THREE.Vector3(jax.pos[0] - 0.2, 4.2, jax.pos[2] + 1.8);
-  const l3 = new THREE.Vector3(...jax.look);
-  const endPos = new THREE.Vector3(...OVERVIEW_POS);
-  const endLook = new THREE.Vector3(...OVERVIEW_LOOK);
+function introCurves() {
+  const posPts = INTRO_WAYPOINTS.map((w) => {
+    const [x, , z] = latLngToMap(w.lat, w.lng);
+    return new THREE.Vector3(x, w.alt, z);
+  });
+  const lookPts = INTRO_WAYPOINTS.map((w) => {
+    const [x, , z] = latLngToMap(w.lookLat, w.lookLng);
+    return new THREE.Vector3(x, w.lookY, z);
+  });
+  posPts.push(new THREE.Vector3(...OVERVIEW_POS));
+  lookPts.push(new THREE.Vector3(...OVERVIEW_LOOK));
   return {
-    pos: new THREE.CatmullRomCurve3([startPos, p1, p2, p3, endPos], false, "catmullrom", 0.25),
-    look: new THREE.CatmullRomCurve3([startLook, l1, l2, l3, endLook], false, "catmullrom", 0.25),
+    pos: new THREE.CatmullRomCurve3(posPts, false, "catmullrom", 0.25),
+    look: new THREE.CatmullRomCurve3(lookPts, false, "catmullrom", 0.25),
   };
 }
 
@@ -433,12 +417,14 @@ function MapRig({
   onIntroFinished,
   controlsRef,
   heightAt,
+  sites,
 }: {
   selectedId: string | null;
   playIntro: boolean;
   onIntroFinished: () => void;
   controlsRef: React.MutableRefObject<OrbitControlsImpl | null>;
   heightAt: HeightSampler;
+  sites: SitePose[];
 }) {
   const { camera } = useThree();
   const flight = useRef({
@@ -454,14 +440,14 @@ function MapRig({
   const look = useRef(new THREE.Vector3(...OVERVIEW_LOOK));
   const doneRef = useRef(onIntroFinished);
   doneRef.current = onIntroFinished;
-  const curves = useMemo(() => introCurves(heightAt), [heightAt]);
+  const curves = useMemo(() => introCurves(), []);
 
   useEffect(() => {
     const f = flight.current;
     if (f.introDone && !playIntro) return;
     if (!playIntro || prefersReducedMotion()) {
       if (selectedId) {
-        const next = approachOf(selectedId, heightAt);
+        const next = approachOf(selectedId, heightAt, sites);
         camera.position.set(...next.pos);
         look.current.set(...next.look);
       } else {
@@ -487,8 +473,8 @@ function MapRig({
     const l = curves.look.getPoint(0);
     camera.position.copy(p);
     look.current.copy(l);
-    setView(camera, p, l, 0.12);
-  }, [playIntro, camera, controlsRef, heightAt, selectedId, curves]);
+    setView(camera, p, l, 0.14);
+  }, [playIntro, camera, controlsRef, heightAt, selectedId, curves, sites]);
 
   useEffect(() => {
     const f = flight.current;
@@ -498,7 +484,7 @@ function MapRig({
     f.fromPos.copy(camera.position);
     f.fromLook.copy(look.current);
     if (selectedId) {
-      const next = approachOf(selectedId, heightAt);
+      const next = approachOf(selectedId, heightAt, sites);
       f.toPos.set(...next.pos);
       f.toLook.set(...next.look);
     } else {
@@ -508,7 +494,7 @@ function MapRig({
     f.t = 0;
     f.mode = "fly";
     if (controlsRef.current) controlsRef.current.enabled = false;
-  }, [selectedId, playIntro, camera, controlsRef, heightAt]);
+  }, [selectedId, playIntro, camera, controlsRef, heightAt, sites]);
 
   useFrame((_, delta) => {
     const f = flight.current;
@@ -518,7 +504,7 @@ function MapRig({
       const ease = t * t * (3 - 2 * t);
       const pos = curves.pos.getPoint(ease);
       const tgt = curves.look.getPoint(ease);
-      const bank = 0.2 * Math.sin(ease * Math.PI * 1.6) * (1 - ease);
+      const bank = 0.22 * Math.sin(ease * Math.PI * 1.8) * (1 - ease);
       camera.position.copy(pos);
       look.current.copy(tgt);
       setView(camera, pos, tgt, bank);
@@ -574,46 +560,51 @@ function FloridaWorld({
   onSelect: (campus: Campus) => void;
   controlsRef: React.MutableRefObject<OrbitControlsImpl | null>;
 }) {
-  const poster = useTexture(asset(FLORIDA_MAP_ASSET));
-  useMemo(() => {
-    poster.colorSpace = THREE.SRGBColorSpace;
-    poster.anisotropy = 8;
-  }, [poster]);
-  const art = useFloridaArtFromTexture(poster);
+  const terrain = useMemo(() => buildFloridaTerrain(isMobile() ? "low" : "high"), []);
+  useEffect(() => () => terrain.dispose(), [terrain]);
+  const sites = useMemo(() => floridaSitePoses(), []);
 
   return (
     <>
       <PaintedSky />
-      <fog attach="fog" args={["#9ec9e6", 22, 62]} />
-      <hemisphereLight args={["#d7e9ff", "#3d5a2a", 0.55]} />
+      <fog attach="fog" args={["#9ec9e6", 28, 78]} />
+      <hemisphereLight args={["#d5e8ff", "#3d5a28", 0.62]} />
+      <ambientLight intensity={0.16} />
       <directionalLight
-        position={[10, 14, 6]}
+        position={[12, 16, 7]}
         intensity={1.35}
         castShadow={!isMobile()}
         shadow-mapSize-width={1024}
         shadow-mapSize-height={1024}
+        shadow-camera-near={1}
+        shadow-camera-far={40}
+        shadow-camera-left={-14}
+        shadow-camera-right={14}
+        shadow-camera-top={14}
+        shadow-camera-bottom={-14}
       />
       <directionalLight position={[-8, 4, -6]} intensity={0.28} color="#8fb7e8" />
       <Ocean />
-      <Peninsula art={art} />
+      <Peninsula terrain={terrain} />
+      <Vegetation terrain={terrain} />
       <CampusMarkers
-        art={art}
+        sites={sites}
+        terrain={terrain}
         selectedId={selectedId}
         hoveredId={hoveredId}
         onHover={onHover}
         onSelect={onSelect}
       />
-      <TitlePlaque />
-      <CompassRose />
-      <StylizedCloud position={[-8, 7.2, -6]} scale={1.4} />
-      <StylizedCloud position={[6, 6.4, -8]} scale={1.1} />
-      <StylizedCloud position={[2, 8.1, 4]} scale={0.85} />
+      <StylizedCloud position={[-9, 7.4, -7]} scale={1.4} />
+      <StylizedCloud position={[7, 6.6, -9]} scale={1.1} />
+      <StylizedCloud position={[2.5, 8.2, 5]} scale={0.85} />
       <MapRig
         selectedId={selectedId}
         playIntro={playIntro}
         onIntroFinished={onIntroFinished}
         controlsRef={controlsRef}
-        heightAt={art.heightAt}
+        heightAt={terrain.heightAt}
+        sites={sites}
       />
     </>
   );
@@ -639,13 +630,13 @@ export default function FloridaMapView({
   return (
     <Canvas
       className="absolute inset-0"
-      camera={{ position: OVERVIEW_POS, fov: 46, near: 0.08, far: 160 }}
+      camera={{ position: OVERVIEW_POS, fov: 46, near: 0.08, far: 180 }}
       gl={{ antialias: true }}
       dpr={[1, 2]}
       shadows
-      aria-label="Interactive 3D flyover of Keiser University Florida campuses"
+      aria-label="Interactive 3D geographic flyover of Keiser University Florida campuses"
     >
-      <color attach="background" args={["#7eb6e4"]} />
+      <color attach="background" args={["#6ea8d6"]} />
       <Suspense fallback={null}>
         <FloridaWorld
           selectedId={selectedId}
@@ -663,10 +654,10 @@ export default function FloridaMapView({
         enablePan
         enableDamping
         dampingFactor={0.08}
-        minDistance={1.4}
-        maxDistance={16}
-        minPolarAngle={0.32}
-        maxPolarAngle={1.32}
+        minDistance={1.8}
+        maxDistance={18}
+        minPolarAngle={0.72}
+        maxPolarAngle={1.28}
         target={OVERVIEW_LOOK}
       />
     </Canvas>

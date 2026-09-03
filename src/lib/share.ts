@@ -14,7 +14,7 @@ export interface ShareState {
   /** Degree-type filter. */
   level?: string | null;
   tour?: boolean;
-  /** Illustrated Florida flyover (`florida`) vs the 3D globe. */
+  /** Geographic Florida flyover (`florida`) vs the 3D globe. */
   view?: "florida" | null;
 }
 
