@@ -105,8 +105,8 @@ function Ocean() {
           uniform float uTime;
           void main() {
             vec3 p = position;
-            p.y += sin(p.x * 1.55 + uTime * 0.7) * 0.032
-                 + sin(p.z * 1.15 + p.x * 0.35 + uTime * 0.85) * 0.024;
+            p.y += sin(p.x * 1.55 + uTime * 0.7) * 0.018
+                 + sin(p.z * 1.15 + p.x * 0.35 + uTime * 0.85) * 0.014;
             vec4 w = modelMatrix * vec4(p, 1.0);
             vWorld = w.xyz;
             gl_Position = projectionMatrix * viewMatrix * w;
@@ -244,7 +244,9 @@ function Peninsula({ art }: { art: FloridaArt }) {
         roughness={0.88}
         metalness={0.02}
         toneMapped={false}
-        side={THREE.DoubleSide}
+        polygonOffset
+        polygonOffsetFactor={1}
+        polygonOffsetUnits={1}
       />
     </mesh>
   );

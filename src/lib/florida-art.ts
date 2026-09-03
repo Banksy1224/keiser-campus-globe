@@ -32,8 +32,8 @@ export interface FloridaArt {
   dispose: () => void;
 }
 
-const MASK_W = 320;
-const MASK_H = 214;
+const MASK_W = 420;
+const MASK_H = 280;
 
 function pixel(data: Uint8ClampedArray, w: number, x: number, y: number, iw: number, ih: number) {
   const px = Math.max(0, Math.min(iw - 1, x));
@@ -402,9 +402,9 @@ function buildPeninsulaGeometry(
       const u = ix / segsX;
       const v = iz / segsZ;
       const cov = sampleC(u, v);
-      const t = THREE.MathUtils.smoothstep(0.22, 0.62, cov);
+      const t = THREE.MathUtils.smoothstep(0.28, 0.68, cov);
       gridC.push(cov);
-      gridY.push(THREE.MathUtils.lerp(WATER_Y, sampleH(u, v), t));
+      gridY.push(THREE.MathUtils.lerp(LAND_MIN_Y, Math.max(LAND_MIN_Y, sampleH(u, v)), t));
     }
   }
 
@@ -431,7 +431,7 @@ function buildPeninsulaGeometry(
       const c10 = gridC[iz * cols + ix + 1];
       const c11 = gridC[(iz + 1) * cols + ix + 1];
       const c01 = gridC[(iz + 1) * cols + ix];
-      if (c00 + c10 + c11 + c01 < 0.55) continue;
+      if (c00 + c10 + c11 + c01 < 0.9) continue;
       const a = ensure(ix, iz);
       const b = ensure(ix + 1, iz);
       const c = ensure(ix + 1, iz + 1);
@@ -450,7 +450,7 @@ function buildPeninsulaGeometry(
     const [x1, , z1] = uvToWorld(u1, v1);
     const y0 = gridY[az * cols + ax];
     const y1 = gridY[bz * cols + bx];
-    if (y0 <= WATER_Y + 0.03 && y1 <= WATER_Y + 0.03) return;
+    if (y0 <= LAND_MIN_Y + 0.01 && y1 <= LAND_MIN_Y + 0.01) return;
     const base = positions.length / 3;
     positions.push(x0, y0, z0, x1, y1, z1, x1, WATER_Y - 0.06, z1, x0, WATER_Y - 0.06, z0);
     uvs.push(u0, 1 - v0, u1, 1 - v1, u1, 1 - v1, u0, 1 - v0);
@@ -558,8 +558,9 @@ export function buildFloridaArt(image: CanvasImageSource, quality: "high" | "low
 
   const heightAt = (u: number, v: number) => {
     const cov = bilinearHeight(coverage, MASK_W, MASK_H, u, v);
-    const t = THREE.MathUtils.smoothstep(0.22, 0.62, cov);
-    return THREE.MathUtils.lerp(WATER_Y, bilinearHeight(heights, MASK_W, MASK_H, u, v), t);
+    const t = THREE.MathUtils.smoothstep(0.28, 0.68, cov);
+    const peak = Math.max(LAND_MIN_Y, bilinearHeight(heights, MASK_W, MASK_H, u, v));
+    return THREE.MathUtils.lerp(LAND_MIN_Y, peak, t);
   };
   const isLandAt = (u: number, v: number) => bilinearHeight(coverage, MASK_W, MASK_H, u, v) > 0.35;
 

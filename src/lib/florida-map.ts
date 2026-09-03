@@ -29,8 +29,8 @@ export const MAP_WIDTH = 18;
 export const MAP_HEIGHT = 12;
 
 /** Water surface. Land sits above this so the coast has a cliff. */
-export const WATER_Y = -0.02;
-export const LAND_MIN_Y = 0.1;
+export const WATER_Y = -0.1;
+export const LAND_MIN_Y = 0.14;
 export const LAND_MAX_Y = 0.52;
 
 export interface MapHotspot {
