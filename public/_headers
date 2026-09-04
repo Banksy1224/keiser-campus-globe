@@ -1,0 +1,6 @@
+# Honored by Cloudflare Pages / Netlify. GitHub Pages IGNORES this file
+# (no custom response headers). See README "Embedding on keiseruniversity.edu".
+/*
+  Content-Security-Policy: frame-ancestors 'self' https://keiseruniversity.edu https://www.keiseruniversity.edu
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin

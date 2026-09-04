@@ -8,25 +8,32 @@ import { WATER_Y, latLngToMap } from "../lib/florida-geo";
 import { buildFloridaTerrain, type FloridaTerrain } from "../lib/florida-terrain";
 import {
   INTRO_WAYPOINTS,
-  OVERVIEW_LOOK,
-  OVERVIEW_POS,
   approachOf,
   floridaSitePoses,
+  overviewLook,
+  overviewPos,
   sameMapCampus,
   type HeightSampler,
   type SitePose,
 } from "../lib/florida-map";
+import {
+  TOUCH_ORBIT_PAN,
+  canvasDpr,
+  canvasGlProps,
+  isLowPowerDevice,
+  prefersReducedMotion as prefersReducedMotionRuntime,
+} from "../lib/runtime";
 
 const INTRO_SECONDS = 11.2;
 const FLY_SECONDS = 1.55;
 const GOLD = new THREE.Color(FLAME_GOLD);
 
 function prefersReducedMotion(): boolean {
-  return typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  return prefersReducedMotionRuntime();
 }
 
 function isMobile(): boolean {
-  return typeof window !== "undefined" && window.matchMedia("(max-width: 639px)").matches;
+  return isLowPowerDevice();
 }
 
 function setView(camera: THREE.Camera, pos: THREE.Vector3, look: THREE.Vector3, roll = 0) {
@@ -77,7 +84,7 @@ function PaintedSky() {
   );
 }
 
-function Ocean() {
+function Ocean({ lowPower }: { lowPower: boolean }) {
   const mat = useMemo(
     () =>
       new THREE.ShaderMaterial({
@@ -86,14 +93,18 @@ function Ocean() {
           uDeep: { value: new THREE.Color("#0a4e7a") },
           uShallow: { value: new THREE.Color("#2ec4ce") },
           uFoam: { value: new THREE.Color("#e7f8fb") },
+          uCheap: { value: lowPower ? 1 : 0 },
         },
         vertexShader: `
           varying vec3 vWorld;
           uniform float uTime;
+          uniform float uCheap;
           void main() {
             vec3 p = position;
-            p.y += sin(p.x * 1.35 + uTime * 0.7) * 0.02
-                 + sin(p.z * 1.05 + p.x * 0.32 + uTime * 0.85) * 0.016;
+            if (uCheap < 0.5) {
+              p.y += sin(p.x * 1.35 + uTime * 0.7) * 0.02
+                   + sin(p.z * 1.05 + p.x * 0.32 + uTime * 0.85) * 0.016;
+            }
             vec4 w = modelMatrix * vec4(p, 1.0);
             vWorld = w.xyz;
             gl_Position = projectionMatrix * viewMatrix * w;
@@ -102,6 +113,7 @@ function Ocean() {
         fragmentShader: `
           varying vec3 vWorld;
           uniform float uTime;
+          uniform float uCheap;
           uniform vec3 uDeep;
           uniform vec3 uShallow;
           uniform vec3 uFoam;
@@ -109,23 +121,26 @@ function Ocean() {
             float d = length(vWorld.xz);
             float shore = smoothstep(3.2, 14.0, d);
             vec3 col = mix(uShallow, uDeep, shore);
-            float w = sin(vWorld.x * 2.1 + uTime * 0.65) * cos(vWorld.z * 1.55 + uTime * 0.5);
-            col += 0.045 * w;
-            float foam = smoothstep(5.5, 2.2, d) * (0.28 + 0.22 * sin(uTime * 1.4 + d * 3.2));
-            col = mix(col, uFoam, foam * 0.35);
+            if (uCheap < 0.5) {
+              float w = sin(vWorld.x * 2.1 + uTime * 0.65) * cos(vWorld.z * 1.55 + uTime * 0.5);
+              col += 0.045 * w;
+              float foam = smoothstep(5.5, 2.2, d) * (0.28 + 0.22 * sin(uTime * 1.4 + d * 3.2));
+              col = mix(col, uFoam, foam * 0.35);
+            }
             gl_FragColor = vec4(col, 1.0);
           }
         `,
       }),
-    [],
+    [lowPower],
   );
   useFrame((_, dt) => {
-    if (prefersReducedMotion()) return;
+    if (prefersReducedMotion() || lowPower) return;
     mat.uniforms.uTime.value += dt;
   });
+  const segs = lowPower ? 16 : 80;
   return (
-    <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, WATER_Y, 0]} receiveShadow>
-      <planeGeometry args={[72, 72, 80, 80]} />
+    <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, WATER_Y, 0]} receiveShadow={!lowPower}>
+      <planeGeometry args={[72, 72, segs, segs]} />
       <primitive object={mat} attach="material" />
     </mesh>
   );
@@ -324,7 +339,7 @@ function CampusCluster({
           document.body.style.cursor = "auto";
         }}
       >
-        <sphereGeometry args={[hot ? 0.38 : 0.28, 12, 10]} />
+        <sphereGeometry args={[hot ? 0.5 : 0.4, 12, 10]} />
         <meshBasicMaterial transparent opacity={0} depthWrite={false} />
       </mesh>
       {selected && (
@@ -351,8 +366,8 @@ function CampusCluster({
           </mesh>
         </>
       )}
-      {(hot || selected) && (
-        <Html position={[0, 0.92, 0]} center style={{ pointerEvents: "none" }}>
+      {hot && !selected && (
+        <Html position={[0, 0.92, 0]} center zIndexRange={[2, 0]} style={{ pointerEvents: "none" }}>
           <div className="whitespace-nowrap rounded-full border border-keiser-gold/60 bg-keiser-navy/90 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-keiser-gold shadow-lg">
             {site.number} · {site.campus.city}
           </div>
@@ -394,7 +409,7 @@ function CampusMarkers({
   );
 }
 
-function introCurves() {
+function introCurves(restPos: [number, number, number], restLook: [number, number, number]) {
   const posPts = INTRO_WAYPOINTS.map((w) => {
     const [x, , z] = latLngToMap(w.lat, w.lng);
     return new THREE.Vector3(x, w.alt, z);
@@ -403,8 +418,8 @@ function introCurves() {
     const [x, , z] = latLngToMap(w.lookLat, w.lookLng);
     return new THREE.Vector3(x, w.lookY, z);
   });
-  posPts.push(new THREE.Vector3(...OVERVIEW_POS));
-  lookPts.push(new THREE.Vector3(...OVERVIEW_LOOK));
+  posPts.push(new THREE.Vector3(...restPos));
+  lookPts.push(new THREE.Vector3(...restLook));
   return {
     pos: new THREE.CatmullRomCurve3(posPts, false, "catmullrom", 0.25),
     look: new THREE.CatmullRomCurve3(lookPts, false, "catmullrom", 0.25),
@@ -418,6 +433,8 @@ function MapRig({
   controlsRef,
   heightAt,
   sites,
+  restPos,
+  restLook,
 }: {
   selectedId: string | null;
   playIntro: boolean;
@@ -425,6 +442,8 @@ function MapRig({
   controlsRef: React.MutableRefObject<OrbitControlsImpl | null>;
   heightAt: HeightSampler;
   sites: SitePose[];
+  restPos: [number, number, number];
+  restLook: [number, number, number];
 }) {
   const { camera } = useThree();
   const flight = useRef({
@@ -437,10 +456,10 @@ function MapRig({
     lastId: null as string | null | undefined,
     introDone: false,
   });
-  const look = useRef(new THREE.Vector3(...OVERVIEW_LOOK));
+  const look = useRef(new THREE.Vector3(...restLook));
   const doneRef = useRef(onIntroFinished);
   doneRef.current = onIntroFinished;
-  const curves = useMemo(() => introCurves(), []);
+  const curves = useMemo(() => introCurves(restPos, restLook), [restPos, restLook]);
 
   useEffect(() => {
     const f = flight.current;
@@ -451,8 +470,8 @@ function MapRig({
         camera.position.set(...next.pos);
         look.current.set(...next.look);
       } else {
-        camera.position.set(...OVERVIEW_POS);
-        look.current.set(...OVERVIEW_LOOK);
+        camera.position.set(...restPos);
+        look.current.set(...restLook);
       }
       setView(camera, camera.position, look.current);
       f.introDone = true;
@@ -474,7 +493,7 @@ function MapRig({
     camera.position.copy(p);
     look.current.copy(l);
     setView(camera, p, l, 0.14);
-  }, [playIntro, camera, controlsRef, heightAt, selectedId, curves, sites]);
+  }, [playIntro, camera, controlsRef, heightAt, selectedId, curves, sites, restPos, restLook]);
 
   useEffect(() => {
     const f = flight.current;
@@ -488,13 +507,13 @@ function MapRig({
       f.toPos.set(...next.pos);
       f.toLook.set(...next.look);
     } else {
-      f.toPos.set(...OVERVIEW_POS);
-      f.toLook.set(...OVERVIEW_LOOK);
+      f.toPos.set(...restPos);
+      f.toLook.set(...restLook);
     }
     f.t = 0;
     f.mode = "fly";
     if (controlsRef.current) controlsRef.current.enabled = false;
-  }, [selectedId, playIntro, camera, controlsRef, heightAt, sites]);
+  }, [selectedId, playIntro, camera, controlsRef, heightAt, sites, restPos, restLook]);
 
   useFrame((_, delta) => {
     const f = flight.current;
@@ -551,6 +570,8 @@ function FloridaWorld({
   onHover,
   onSelect,
   controlsRef,
+  lowPower,
+  compact,
 }: {
   selectedId: string | null;
   hoveredId: string | null;
@@ -559,21 +580,23 @@ function FloridaWorld({
   onHover: (id: string | null) => void;
   onSelect: (campus: Campus) => void;
   controlsRef: React.MutableRefObject<OrbitControlsImpl | null>;
+  lowPower: boolean;
+  compact: boolean;
 }) {
-  const terrain = useMemo(() => buildFloridaTerrain(isMobile() ? "low" : "high"), []);
+  const terrain = useMemo(() => buildFloridaTerrain(lowPower ? "low" : "high"), [lowPower]);
   useEffect(() => () => terrain.dispose(), [terrain]);
   const sites = useMemo(() => floridaSitePoses(), []);
 
   return (
     <>
       <PaintedSky />
-      <fog attach="fog" args={["#9ec9e6", 28, 78]} />
+      <fog attach="fog" args={compact ? ["#8ec4e8", 55, 140] : ["#9ec9e6", 28, 78]} />
       <hemisphereLight args={["#d5e8ff", "#3d5a28", 0.62]} />
       <ambientLight intensity={0.16} />
       <directionalLight
         position={[12, 16, 7]}
         intensity={1.35}
-        castShadow={!isMobile()}
+        castShadow={!lowPower}
         shadow-mapSize-width={1024}
         shadow-mapSize-height={1024}
         shadow-camera-near={1}
@@ -584,9 +607,9 @@ function FloridaWorld({
         shadow-camera-bottom={-14}
       />
       <directionalLight position={[-8, 4, -6]} intensity={0.28} color="#8fb7e8" />
-      <Ocean />
+      <Ocean lowPower={lowPower} />
       <Peninsula terrain={terrain} />
-      <Vegetation terrain={terrain} />
+      {!lowPower && <Vegetation terrain={terrain} />}
       <CampusMarkers
         sites={sites}
         terrain={terrain}
@@ -595,9 +618,13 @@ function FloridaWorld({
         onHover={onHover}
         onSelect={onSelect}
       />
-      <StylizedCloud position={[-9, 7.4, -7]} scale={1.4} />
-      <StylizedCloud position={[7, 6.6, -9]} scale={1.1} />
-      <StylizedCloud position={[2.5, 8.2, 5]} scale={0.85} />
+      {!lowPower && (
+        <>
+          <StylizedCloud position={[-9, 7.4, -7]} scale={1.4} />
+          <StylizedCloud position={[7, 6.6, -9]} scale={1.1} />
+          <StylizedCloud position={[2.5, 8.2, 5]} scale={0.85} />
+        </>
+      )}
       <MapRig
         selectedId={selectedId}
         playIntro={playIntro}
@@ -605,6 +632,8 @@ function FloridaWorld({
         controlsRef={controlsRef}
         heightAt={terrain.heightAt}
         sites={sites}
+        restPos={overviewPos(compact)}
+        restLook={overviewLook(compact)}
       />
     </>
   );
@@ -617,6 +646,8 @@ export default function FloridaMapView({
   onIntroFinished,
   onHover,
   onSelect,
+  lowPower = false,
+  compact = false,
 }: {
   selectedId: string | null;
   hoveredId: string | null;
@@ -624,16 +655,21 @@ export default function FloridaMapView({
   onIntroFinished: () => void;
   onHover: (id: string | null) => void;
   onSelect: (campus: Campus) => void;
+  lowPower?: boolean;
+  compact?: boolean;
 }) {
   const controlsRef = useRef<OrbitControlsImpl | null>(null);
+  const rest = overviewPos(compact);
+  const look = overviewLook(compact);
 
   return (
     <Canvas
       className="absolute inset-0"
-      camera={{ position: OVERVIEW_POS, fov: 46, near: 0.08, far: 180 }}
-      gl={{ antialias: true }}
-      dpr={[1, 2]}
-      shadows
+      camera={{ position: rest, fov: compact ? 64 : 46, near: 0.08, far: 220 }}
+      gl={canvasGlProps(lowPower)}
+      dpr={canvasDpr(lowPower)}
+      shadows={!lowPower}
+      style={{ touchAction: "none" }}
       aria-label="Interactive 3D geographic flyover of Keiser University Florida campuses"
     >
       <color attach="background" args={["#6ea8d6"]} />
@@ -646,6 +682,8 @@ export default function FloridaMapView({
           onHover={onHover}
           onSelect={onSelect}
           controlsRef={controlsRef}
+          lowPower={lowPower}
+          compact={compact}
         />
       </Suspense>
       <OrbitControls
@@ -655,10 +693,13 @@ export default function FloridaMapView({
         enableDamping
         dampingFactor={0.08}
         minDistance={1.8}
-        maxDistance={18}
-        minPolarAngle={0.72}
+        maxDistance={compact ? 42 : 18}
+        minPolarAngle={compact ? 0.18 : 0.72}
         maxPolarAngle={1.28}
-        target={OVERVIEW_LOOK}
+        target={look}
+        touches={TOUCH_ORBIT_PAN}
+        zoomSpeed={0.75}
+        rotateSpeed={0.55}
       />
     </Canvas>
   );

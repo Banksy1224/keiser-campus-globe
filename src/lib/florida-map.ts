@@ -66,11 +66,31 @@ export function rosterRowFor(campusId: string) {
 export type HeightSampler = (x: number, z: number) => number;
 
 /** Resting aerial viewpoint — Gulf side, looking northeast across the peninsula. */
-export const OVERVIEW_LOOK = latLngToMap(27.55, -82.35, 0.18);
+export const OVERVIEW_LOOK = latLngToMap(27.8, -83.35, 0.18);
 export const OVERVIEW_POS: [number, number, number] = (() => {
   const [x, , z] = latLngToMap(25.35, -84.15);
   return [x - 0.4, 8.4, z + 1.15];
 })();
+
+/** Center of the state — used as the compact look-at. */
+export const OVERVIEW_LOOK_COMPACT = latLngToMap(28.05, -83.35, 0.05);
+
+/**
+ * Phone / landscape / embed: high and south so Keys + panhandle fit a
+ * short viewport. Desktop keeps the closer cinematic seat.
+ */
+export const OVERVIEW_POS_COMPACT: [number, number, number] = (() => {
+  const [x, , z] = latLngToMap(28.0, -83.4);
+  return [x, 34, z + 3];
+})();
+
+export function overviewPos(compact: boolean): [number, number, number] {
+  return compact ? OVERVIEW_POS_COMPACT : OVERVIEW_POS;
+}
+
+export function overviewLook(compact: boolean): [number, number, number] {
+  return compact ? OVERVIEW_LOOK_COMPACT : OVERVIEW_LOOK;
+}
 
 export interface SitePose {
   id: string;

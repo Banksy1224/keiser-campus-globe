@@ -13,6 +13,18 @@ export default defineConfig(({ command }) => ({
     proxy: {
       "/api": "http://localhost:8787",
     },
+    headers: {
+      // Allow the university site (and local preview frames) to embed us.
+      // Do NOT send X-Frame-Options: SAMEORIGIN — that would block Contact / Campuses.
+      "Content-Security-Policy":
+        "frame-ancestors 'self' https://keiseruniversity.edu https://www.keiseruniversity.edu",
+    },
+  },
+  preview: {
+    headers: {
+      "Content-Security-Policy":
+        "frame-ancestors 'self' https://keiseruniversity.edu https://www.keiseruniversity.edu",
+    },
   },
   build: {
     chunkSizeWarningLimit: 1200,

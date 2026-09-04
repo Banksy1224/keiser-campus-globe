@@ -1,0 +1,29 @@
+/* Optional stylesheet for keiseruniversity.edu Contact / Campuses pages.
+   Link this from the *host* page (not required — the iframe snippet in the
+   README already sizes the frame). GitHub Pages cannot set CSP / X-Frame-
+   Options; this file only styles the host's iframe wrapper. */
+
+.keiser-globe-embed-wrap {
+  width: 100%;
+  max-width: 100%;
+  margin: 0 auto;
+}
+
+.keiser-globe-embed {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  min-height: 70vh;
+  height: min(80vh, 720px);
+  border: 0;
+  border-radius: 12px;
+  background: #0b1c33;
+}
+
+@media (max-width: 639px) {
+  .keiser-globe-embed {
+    min-height: 70vh;
+    height: 75vh;
+    border-radius: 0;
+  }
+}

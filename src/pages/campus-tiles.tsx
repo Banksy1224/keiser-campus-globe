@@ -10,6 +10,7 @@ import {
 } from "3d-tiles-renderer/plugins";
 import type { Campus } from "../lib/campus-data";
 import { GOOGLE_KEY, TILES_ENABLED, useResolvedLatLng } from "../lib/campus-location";
+import { TOUCH_ORBIT, canvasDpr, canvasGlProps, isLowPowerDevice } from "../lib/runtime";
 
 export { TILES_ENABLED };
 
@@ -35,12 +36,14 @@ function Tiles({ lat, lng, reKey }: { lat: number; lng: number; reKey: string })
  */
 export default function CampusTilesOverlay({ campus }: { campus: Campus }) {
   const { lat, lng } = useResolvedLatLng(campus);
+  const lowPower = isLowPowerDevice();
   return (
     <Canvas
       className="absolute inset-0"
       camera={{ position: [0, 320, 620], near: 1, far: 1e7, fov: 55 }}
-      gl={{ antialias: true, logarithmicDepthBuffer: true }}
-      dpr={[1, 2]}
+      gl={{ ...canvasGlProps(lowPower), logarithmicDepthBuffer: true }}
+      dpr={canvasDpr(lowPower)}
+      style={{ touchAction: "none" }}
     >
       <color attach="background" args={["#0b1c33"]} />
       <hemisphereLight intensity={1.0} />
@@ -60,10 +63,14 @@ export default function CampusTilesOverlay({ campus }: { campus: Campus }) {
       </Suspense>
       <OrbitControls
         makeDefault
+        enableDamping
+        dampingFactor={0.08}
         target={[0, 30, 0]}
         minDistance={120}
         maxDistance={6000}
         maxPolarAngle={Math.PI / 2.05}
+        touches={TOUCH_ORBIT}
+        zoomSpeed={0.75}
       />
     </Canvas>
   );

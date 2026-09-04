@@ -87,6 +87,99 @@ restrictions. The production base path is set to `/keiser-campus-globe/` in
 [`vite.config.ts`](vite.config.ts); override it with the `VITE_BASE` env var if
 you attach a custom domain.
 
+## Embedding on keiseruniversity.edu (Contact + Campuses)
+
+The globe is built to sit in an **iframe** on
+[Contact](https://www.keiseruniversity.edu/contact/) and
+[Campuses](https://www.keiseruniversity.edu/campuses/). Phone-first chrome,
+a campus bottom sheet, and cheaper WebGL settings kick in automatically on
+narrow / touch devices.
+
+**Turn on embed chrome** with `?embed=1` (or by framing the page — the app
+detects `window.self !== window.top`). Embed mode tightens the header, keeps
+the Keiser · CAI credit, fills the parent frame, and uses a ~70–80vh-friendly
+min-height.
+
+### Drop-in iframe (Contact / Campuses)
+
+```html
+<!-- Optional host stylesheet (sizes the iframe; not required if you use the classes below). -->
+<link rel="stylesheet" href="https://banksy1224.github.io/keiser-campus-globe/embed-host.css" />
+
+<div class="keiser-globe-embed-wrap">
+  <iframe
+    class="keiser-globe-embed"
+    src="https://banksy1224.github.io/keiser-campus-globe/?embed=1"
+    title="Keiser University campus globe"
+    loading="lazy"
+    allow="fullscreen; xr-spatial-tracking"
+    allowfullscreen
+    referrerpolicy="no-referrer-when-downgrade"
+  ></iframe>
+</div>
+```
+
+Florida flyover on Campuses (or a second module on Contact):
+
+```html
+<iframe
+  class="keiser-globe-embed"
+  src="https://banksy1224.github.io/keiser-campus-globe/?embed=1&view=florida"
+  title="Keiser University Florida campuses"
+  loading="lazy"
+  allow="fullscreen; xr-spatial-tracking"
+  allowfullscreen
+></iframe>
+```
+
+If you cannot add the stylesheet, copy these rules onto the host page:
+
+```css
+.keiser-globe-embed {
+  display: block;
+  width: 100%;
+  min-height: 70vh;
+  height: min(80vh, 720px);
+  border: 0;
+  background: #0b1c33;
+}
+@media (max-width: 639px) {
+  .keiser-globe-embed { height: 75vh; }
+}
+```
+
+Live host-page previews (scrollable page + iframe):
+
+- Globe: `https://banksy1224.github.io/keiser-campus-globe/embed-demo.html`
+- Florida: `https://banksy1224.github.io/keiser-campus-globe/embed-demo-florida.html`
+
+### Touch + scroll inside the iframe
+
+- **One finger** rotates the globe / peninsula.
+- **Two fingers** pinch-zoom (Florida also pans on the two-finger gesture).
+- The canvas uses `touch-action: none` so iOS Safari and Chrome Android give
+  those gestures to OrbitControls instead of the browser page-zoom.
+- **Parent-page scroll:** an iframe cannot forward a one-finger drag to the
+  host document. Size the iframe (70–80vh as above) so visitors scroll the
+  Contact / Campuses page *around* the frame, not through it.
+
+### Framing / headers — GitHub Pages limitation
+
+| Layer | What we can do |
+| --- | --- |
+| **GitHub Pages (current host)** | Pages **does not allow custom response headers**. It does **not** send `X-Frame-Options` or `Content-Security-Policy`, so framing from `keiseruniversity.edu` / `www.keiseruniversity.edu` works today. `public/_headers` is included for Cloudflare / Netlify if the app is ever moved; Pages ignores it. |
+| **This repo (Vite preview)** | Sets `Content-Security-Policy: frame-ancestors 'self' https://keiseruniversity.edu https://www.keiseruniversity.edu`. We do **not** send `X-Frame-Options: SAMEORIGIN` (that would block the university site). |
+| **University site (host)** | The host page's CSP must allow the iframe: `frame-src https://banksy1224.github.io` (and `https:` if you later attach a custom domain). If Contact / Campuses sets `frame-src 'self'` only, the globe will be blank. |
+
+**WebGL:** no extra `allow` token is required for WebGL. If a future host CSP
+uses `default-src` without `https://banksy1224.github.io`, textures and the
+module graph will fail — add that origin to `script-src`, `style-src`,
+`img-src`, `connect-src`, and `worker-src` as needed.
+
+If Keiser later serves the globe from a custom domain, keep
+`frame-ancestors` listing the university hosts and **do not** add
+`X-Frame-Options: DENY` or `SAMEORIGIN`.
+
 ## Photoreal 3D campus tour (Google 3D Tiles)
 
 "Enter 3D campus tour" can render **real Google Photorealistic 3D Tiles** of a
