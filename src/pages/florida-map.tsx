@@ -9,9 +9,9 @@ import { buildFloridaTerrain, type FloridaTerrain } from "../lib/florida-terrain
 import {
   INTRO_WAYPOINTS,
   OVERVIEW_LOOK,
-  OVERVIEW_POS,
   approachOf,
   floridaSitePoses,
+  overviewPos,
   sameMapCampus,
   type HeightSampler,
   type SitePose,
@@ -366,8 +366,8 @@ function CampusCluster({
           </mesh>
         </>
       )}
-      {(hot || selected) && (
-        <Html position={[0, 0.92, 0]} center style={{ pointerEvents: "none" }}>
+      {hot && !selected && (
+        <Html position={[0, 0.92, 0]} center zIndexRange={[2, 0]} style={{ pointerEvents: "none" }}>
           <div className="whitespace-nowrap rounded-full border border-keiser-gold/60 bg-keiser-navy/90 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-keiser-gold shadow-lg">
             {site.number} · {site.campus.city}
           </div>
@@ -409,7 +409,7 @@ function CampusMarkers({
   );
 }
 
-function introCurves() {
+function introCurves(restPos: [number, number, number]) {
   const posPts = INTRO_WAYPOINTS.map((w) => {
     const [x, , z] = latLngToMap(w.lat, w.lng);
     return new THREE.Vector3(x, w.alt, z);
@@ -418,7 +418,7 @@ function introCurves() {
     const [x, , z] = latLngToMap(w.lookLat, w.lookLng);
     return new THREE.Vector3(x, w.lookY, z);
   });
-  posPts.push(new THREE.Vector3(...OVERVIEW_POS));
+  posPts.push(new THREE.Vector3(...restPos));
   lookPts.push(new THREE.Vector3(...OVERVIEW_LOOK));
   return {
     pos: new THREE.CatmullRomCurve3(posPts, false, "catmullrom", 0.25),
@@ -433,6 +433,7 @@ function MapRig({
   controlsRef,
   heightAt,
   sites,
+  restPos,
 }: {
   selectedId: string | null;
   playIntro: boolean;
@@ -440,6 +441,7 @@ function MapRig({
   controlsRef: React.MutableRefObject<OrbitControlsImpl | null>;
   heightAt: HeightSampler;
   sites: SitePose[];
+  restPos: [number, number, number];
 }) {
   const { camera } = useThree();
   const flight = useRef({
@@ -455,7 +457,7 @@ function MapRig({
   const look = useRef(new THREE.Vector3(...OVERVIEW_LOOK));
   const doneRef = useRef(onIntroFinished);
   doneRef.current = onIntroFinished;
-  const curves = useMemo(() => introCurves(), []);
+  const curves = useMemo(() => introCurves(restPos), [restPos]);
 
   useEffect(() => {
     const f = flight.current;
@@ -466,7 +468,7 @@ function MapRig({
         camera.position.set(...next.pos);
         look.current.set(...next.look);
       } else {
-        camera.position.set(...OVERVIEW_POS);
+        camera.position.set(...restPos);
         look.current.set(...OVERVIEW_LOOK);
       }
       setView(camera, camera.position, look.current);
@@ -489,7 +491,7 @@ function MapRig({
     camera.position.copy(p);
     look.current.copy(l);
     setView(camera, p, l, 0.14);
-  }, [playIntro, camera, controlsRef, heightAt, selectedId, curves, sites]);
+  }, [playIntro, camera, controlsRef, heightAt, selectedId, curves, sites, restPos]);
 
   useEffect(() => {
     const f = flight.current;
@@ -503,13 +505,13 @@ function MapRig({
       f.toPos.set(...next.pos);
       f.toLook.set(...next.look);
     } else {
-      f.toPos.set(...OVERVIEW_POS);
+      f.toPos.set(...restPos);
       f.toLook.set(...OVERVIEW_LOOK);
     }
     f.t = 0;
     f.mode = "fly";
     if (controlsRef.current) controlsRef.current.enabled = false;
-  }, [selectedId, playIntro, camera, controlsRef, heightAt, sites]);
+  }, [selectedId, playIntro, camera, controlsRef, heightAt, sites, restPos]);
 
   useFrame((_, delta) => {
     const f = flight.current;
@@ -567,6 +569,7 @@ function FloridaWorld({
   onSelect,
   controlsRef,
   lowPower,
+  compact,
 }: {
   selectedId: string | null;
   hoveredId: string | null;
@@ -576,6 +579,7 @@ function FloridaWorld({
   onSelect: (campus: Campus) => void;
   controlsRef: React.MutableRefObject<OrbitControlsImpl | null>;
   lowPower: boolean;
+  compact: boolean;
 }) {
   const terrain = useMemo(() => buildFloridaTerrain(lowPower ? "low" : "high"), [lowPower]);
   useEffect(() => () => terrain.dispose(), [terrain]);
@@ -626,6 +630,7 @@ function FloridaWorld({
         controlsRef={controlsRef}
         heightAt={terrain.heightAt}
         sites={sites}
+        restPos={overviewPos(compact)}
       />
     </>
   );
@@ -639,6 +644,7 @@ export default function FloridaMapView({
   onHover,
   onSelect,
   lowPower = false,
+  compact = false,
 }: {
   selectedId: string | null;
   hoveredId: string | null;
@@ -647,13 +653,15 @@ export default function FloridaMapView({
   onHover: (id: string | null) => void;
   onSelect: (campus: Campus) => void;
   lowPower?: boolean;
+  compact?: boolean;
 }) {
   const controlsRef = useRef<OrbitControlsImpl | null>(null);
+  const rest = overviewPos(compact);
 
   return (
     <Canvas
       className="absolute inset-0"
-      camera={{ position: OVERVIEW_POS, fov: 46, near: 0.08, far: 180 }}
+      camera={{ position: rest, fov: compact ? 58 : 46, near: 0.08, far: 180 }}
       gl={canvasGlProps(lowPower)}
       dpr={canvasDpr(lowPower)}
       shadows={!lowPower}
@@ -671,6 +679,7 @@ export default function FloridaMapView({
           onSelect={onSelect}
           controlsRef={controlsRef}
           lowPower={lowPower}
+          compact={compact}
         />
       </Suspense>
       <OrbitControls
@@ -680,8 +689,8 @@ export default function FloridaMapView({
         enableDamping
         dampingFactor={0.08}
         minDistance={1.8}
-        maxDistance={18}
-        minPolarAngle={0.72}
+        maxDistance={compact ? 28 : 18}
+        minPolarAngle={compact ? 0.28 : 0.72}
         maxPolarAngle={1.28}
         target={OVERVIEW_LOOK}
         touches={TOUCH_ORBIT_PAN}

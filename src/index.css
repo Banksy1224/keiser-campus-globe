@@ -29,12 +29,15 @@ body {
   overflow: hidden;
 }
 
-/* Iframe embed on Contact / Campuses: fill the frame, stay 70–80vh friendly. */
+/* Iframe embed: fill the *frame*, never 100vh of the parent page (iOS vh
+   inside an iframe is the host window). Host CSS sets the iframe height. */
 html.is-embed,
 html.is-embed body,
 html.is-embed #root {
-  min-height: 70vh;
   height: 100%;
+  min-height: 0;
+  max-height: 100%;
+  overflow: hidden;
   overscroll-behavior: none;
 }
 
@@ -49,8 +52,20 @@ canvas {
 @layer components {
   /* WCAG / Apple HIG: ≥44×44px tap targets on phones. */
   .tap-target {
+    box-sizing: border-box;
     min-height: 44px;
     min-width: 44px;
+  }
+  .icon-btn {
+    box-sizing: border-box;
+    display: inline-flex;
+    height: 44px;
+    width: 44px;
+    min-height: 44px;
+    min-width: 44px;
+    flex-shrink: 0;
+    align-items: center;
+    justify-content: center;
   }
 }
 

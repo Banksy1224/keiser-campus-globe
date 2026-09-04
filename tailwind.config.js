@@ -19,6 +19,11 @@ export default {
         sans: ["Roboto", "system-ui", "Arial", "sans-serif"],
         display: ["'Barlow Condensed'", "Roboto", "system-ui", "sans-serif"],
       },
+      // Real desktop only. Landscape phones (~844×390) stay on compact
+      // bottom-sheet chrome — `sm` (640px) would flip them to a broken rail.
+      screens: {
+        desk: { raw: "(min-width: 900px) and (min-height: 700px)" },
+      },
       keyframes: {
         "fade-in": {
           from: { opacity: "0", transform: "translateY(8px)" },

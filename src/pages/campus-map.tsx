@@ -66,6 +66,7 @@ import {
   canvasGlProps,
   isLowPowerDevice,
   readEmbedFlag,
+  useCompactChrome,
 } from "../lib/runtime";
 
 // Base-aware asset URL (works under the GitHub Pages project sub-path).
@@ -136,6 +137,24 @@ function Globe({
   globeRef: React.MutableRefObject<THREE.Mesh | null>;
   lowPower: boolean;
 }) {
+  return lowPower ? <GlobeLite globeRef={globeRef} /> : <GlobeFull globeRef={globeRef} />;
+}
+
+/** Phone / embed: one day texture, no clouds / lights / normals. */
+function GlobeLite({ globeRef }: { globeRef: React.MutableRefObject<THREE.Mesh | null> }) {
+  const dayMap = useTexture(asset("textures/earth_atmos_2048.jpg"));
+  useMemo(() => {
+    dayMap.colorSpace = THREE.SRGBColorSpace;
+  }, [dayMap]);
+  return (
+    <mesh ref={globeRef}>
+      <sphereGeometry args={[GLOBE_RADIUS, 32, 32]} />
+      <meshBasicMaterial map={dayMap} />
+    </mesh>
+  );
+}
+
+function GlobeFull({ globeRef }: { globeRef: React.MutableRefObject<THREE.Mesh | null> }) {
   const [dayMap, normalMap, specMap, nightMap, cloudsMap] = useTexture([
     asset("textures/earth_atmos_2048.jpg"),
     asset("textures/earth_normal_2048.jpg"),
@@ -143,9 +162,6 @@ function Globe({
     asset("textures/earth_lights_2048.png"),
     asset("textures/earth_clouds_1024.png"),
   ]);
-  const segs = lowPower ? 48 : 96;
-  const cloudSegs = lowPower ? 32 : 64;
-  const atmoSegs = lowPower ? 24 : 48;
 
   useMemo(() => {
     dayMap.colorSpace = THREE.SRGBColorSpace;
@@ -161,36 +177,24 @@ function Globe({
   return (
     <group>
       <mesh ref={globeRef}>
-        <sphereGeometry args={[GLOBE_RADIUS, segs, segs]} />
+        <sphereGeometry args={[GLOBE_RADIUS, 96, 96]} />
         <meshStandardMaterial
           map={dayMap}
           normalMap={normalMap}
-          // Oceans are bright in the specular map → slightly metallic → catch a
-          // sun-glint; landmasses stay matte.
           metalnessMap={specMap}
           metalness={0.32}
           roughness={0.66}
-          // City lights glow on the night side.
           emissiveMap={nightMap}
           emissive={"#ffcf8f"}
           emissiveIntensity={1.05}
         />
       </mesh>
-
-      {/* Cloud layer, drifting a touch faster than the surface. */}
       <mesh ref={cloudsRef} scale={1.01}>
-        <sphereGeometry args={[GLOBE_RADIUS, cloudSegs, cloudSegs]} />
-        <meshStandardMaterial
-          map={cloudsMap}
-          transparent
-          opacity={0.4}
-          depthWrite={false}
-        />
+        <sphereGeometry args={[GLOBE_RADIUS, 64, 64]} />
+        <meshStandardMaterial map={cloudsMap} transparent opacity={0.4} depthWrite={false} />
       </mesh>
-
-      {/* Atmosphere: a slightly larger back-facing shell with additive glow. */}
       <mesh scale={1.16}>
-        <sphereGeometry args={[GLOBE_RADIUS, atmoSegs, atmoSegs]} />
+        <sphereGeometry args={[GLOBE_RADIUS, 48, 48]} />
         <meshBasicMaterial
           color="#5a8bd6"
           transparent
@@ -273,7 +277,10 @@ function CampusPins({
         const dimmed = matchedIds ? !matched && !active : false;
         // Declutter: at the wide view show just a dot; reveal the flag marker
         // when zoomed in, hovered, selected, or matched by a search.
-        const showMarker = (active || showCity || matched) && !dimmed;
+        // Hide floating labels while a detail panel is open — they used to
+        // paint over the copy (drei Html default z-index sits above the UI).
+        const showMarker =
+          !selectedId && (hoveredId === campus.id || showCity || matched) && !dimmed;
         const highlight = active || matched;
         return (
           <group key={campus.id} position={pos}>
@@ -312,7 +319,7 @@ function CampusPins({
                 position={[0, 0.06, 0]}
                 center
                 occlude={globeRef.current ? [globeRef] : undefined}
-                zIndexRange={[30, 0]}
+                zIndexRange={[2, 0]}
                 style={{ pointerEvents: "none" }}
               >
                 <div
@@ -674,18 +681,12 @@ function GlobeScene({
           a bright "sun" gives the terminator + ocean glint. */}
       <ambientLight intensity={0.18} />
       <directionalLight position={[6, 2, 4]} intensity={2.1} />
-      <Stars
-        radius={120}
-        depth={60}
-        count={lowPower ? 900 : 4000}
-        factor={lowPower ? 3 : 4}
-        saturation={0}
-        fade
-        speed={0.6}
-      />
+      {!lowPower && (
+        <Stars radius={120} depth={60} count={4000} factor={4} saturation={0} fade speed={0.6} />
+      )}
       <group ref={groupRef}>
         <Globe globeRef={globeRef} lowPower={lowPower} />
-        <NetworkArcs />
+        {!lowPower && <NetworkArcs />}
         <CampusPins
           campuses={campuses}
           selectedId={selectedId}
@@ -724,6 +725,7 @@ export default function CampusMap() {
   const [tourReturn, setTourReturn] = useState<"globe" | "florida">("globe");
   const [embedded] = useState(() => readEmbedFlag());
   const [lowPower] = useState(() => isLowPowerDevice());
+  const compact = useCompactChrome();
   const updateFilter = (patch: Partial<ProgramFilter>) =>
     setProgramFilter((f) => ({ ...f, ...patch }));
   const controlsRef = useRef<OrbitControlsImpl | null>(null);
@@ -858,7 +860,7 @@ export default function CampusMap() {
     if (viewMode === "florida" && !FLORIDA_MAP_IDS.has(campus.id)) {
       setViewMode("globe");
     }
-    if (window.matchMedia("(max-width: 639px)").matches) setFinderOpen(false);
+    if (compact) setFinderOpen(false);
   }
 
   function enterFloridaMap() {
@@ -875,6 +877,12 @@ export default function CampusMap() {
   function enterGlobe() {
     setViewMode("globe");
     setMapIntro(false);
+    setSelectedId(null);
+    setHoveredId(null);
+    setListOpen(false);
+    setTourPlaying(false);
+    setInTour(false);
+    stopSpeaking();
   }
 
   function closePanel() {
@@ -988,6 +996,7 @@ export default function CampusMap() {
             onHover={setHoveredId}
             onSelect={handleManualSelect}
             lowPower={lowPower}
+            compact={compact}
           />
         </Suspense>
       )}
@@ -1004,7 +1013,7 @@ export default function CampusMap() {
           <color attach="background" args={["#0b1c33"]} />
           {inTour && selected ? (
             <>
-              <Stars radius={80} depth={40} count={lowPower ? 500 : 1500} factor={3} fade speed={0.4} />
+              {!lowPower && <Stars radius={80} depth={40} count={1500} factor={3} fade speed={0.4} />}
               <CampusScene campus={selected} />
               <OrbitControls
                 makeDefault
@@ -1083,19 +1092,19 @@ export default function CampusMap() {
       )}
 
       {/* ---- Top bar: stacked on phones so logo / CAI / Globe↔Florida never collide ---- */}
-      <header className="pointer-events-none absolute inset-x-0 top-0 z-40 flex flex-col gap-2 px-3 pb-1 pt-[max(0.75rem,env(safe-area-inset-top))] sm:flex-row sm:items-start sm:justify-between sm:gap-3 sm:p-6">
-        <div className="pointer-events-auto flex min-w-0 items-center justify-between gap-2 sm:block">
-          <BrandLogo compact={embedded} />
-          <p className="shrink-0 text-[10px] font-semibold uppercase tracking-[0.16em] text-keiser-gold/75 sm:mt-0.5">
+      <header className="pointer-events-none absolute inset-x-0 top-0 z-40 flex flex-col gap-2 px-3 pb-1 pt-[max(0.75rem,env(safe-area-inset-top))] desk:flex-row desk:items-start desk:justify-between desk:gap-3 desk:p-6">
+        <div className="pointer-events-auto flex min-w-0 items-center justify-between gap-2 desk:block">
+          <BrandLogo compact={embedded || compact} />
+          <p className="shrink-0 text-[10px] font-semibold uppercase tracking-[0.16em] text-keiser-gold/75 desk:mt-0.5">
             Keiser · CAI
           </p>
-          <p className={`mt-1 hidden max-w-md text-xs text-slate-300/80 sm:text-sm ${embedded ? "sm:hidden" : "sm:block"}`}>
+          <p className={`mt-1 hidden max-w-md text-xs text-slate-300/80 desk:text-sm ${embedded ? "desk:hidden" : "desk:block"}`}>
             {subtitle}
           </p>
         </div>
 
-        <div className="pointer-events-auto flex max-w-full flex-wrap items-center justify-end gap-1.5 sm:gap-2">
-          {/* Campuses drawer toggle (mobile only) */}
+        <div className="pointer-events-auto flex max-w-full flex-wrap items-center justify-end gap-1.5 desk:gap-2">
+          {/* Campuses drawer toggle (compact + landscape phones) */}
           {!inTour && (
             <button
               type="button"
@@ -1103,9 +1112,9 @@ export default function CampusMap() {
                 setFinderOpen(false);
                 setListOpen((v) => !v);
               }}
-              aria-label="Browse campuses"
+              aria-label={listOpen ? "Close campus list" : "Browse campuses"}
               aria-expanded={listOpen}
-              className="tap-target inline-flex items-center justify-center rounded-full border border-keiser-gold/40 bg-keiser-navy/70 p-2 text-keiser-gold backdrop-blur transition hover:bg-keiser-gold/15 sm:hidden"
+              className="icon-btn rounded-full border border-keiser-gold/40 bg-keiser-navy/70 text-keiser-gold backdrop-blur transition hover:bg-keiser-gold/15 desk:hidden"
             >
               <ListIcon />
             </button>
@@ -1118,14 +1127,14 @@ export default function CampusMap() {
               onClick={() => (viewMode === "florida" ? enterGlobe() : enterFloridaMap())}
               aria-pressed={viewMode === "florida"}
               aria-label={viewMode === "florida" ? "Back to globe" : "Open Florida map"}
-              className={`tap-target inline-flex items-center justify-center gap-2 rounded-full border p-2 text-sm font-semibold backdrop-blur transition sm:px-4 ${
+              className={`icon-btn rounded-full border text-sm font-semibold backdrop-blur transition desk:h-auto desk:w-auto desk:min-w-11 desk:gap-2 desk:px-4 ${
                 viewMode === "florida"
                   ? "border-keiser-gold bg-keiser-gold/15 text-keiser-gold"
                   : "border-keiser-gold/40 bg-keiser-navy/70 text-keiser-gold hover:bg-keiser-gold/15"
               }`}
             >
               {viewMode === "florida" ? <GlobeIcon /> : <MapIcon />}
-              <span className="sr-only sm:not-sr-only sm:inline">{viewMode === "florida" ? "Globe" : "Florida map"}</span>
+              <span className="sr-only desk:not-sr-only desk:inline">{viewMode === "florida" ? "Globe" : "Florida map"}</span>
             </button>
           )}
 
@@ -1136,14 +1145,14 @@ export default function CampusMap() {
               onClick={toggleNarration}
               aria-pressed={narrate}
               title={narrate ? "Narration on" : "Narration off"}
-              className={`tap-target inline-flex items-center justify-center gap-2 rounded-full border p-2 text-sm font-semibold backdrop-blur transition sm:px-3 ${
+              className={`icon-btn rounded-full border text-sm font-semibold backdrop-blur transition desk:h-auto desk:w-auto desk:min-w-11 desk:gap-2 desk:px-3 ${
                 narrate
                   ? "border-keiser-gold/60 bg-keiser-gold/15 text-keiser-gold"
                   : "border-white/20 bg-keiser-navy/70 text-slate-300 hover:bg-white/10"
               }`}
             >
               {narrate ? <SpeakerIcon /> : <MuteIcon />}
-              <span className="hidden sm:inline">{narrate ? "Voice on" : "Voice off"}</span>
+              <span className="hidden desk:inline">{narrate ? "Voice on" : "Voice off"}</span>
             </button>
           )}
 
@@ -1156,14 +1165,14 @@ export default function CampusMap() {
             }}
             aria-pressed={finderOpen}
             aria-label="Find a program"
-            className={`tap-target inline-flex items-center justify-center gap-2 rounded-full border p-2 text-sm font-semibold backdrop-blur transition sm:px-4 ${
+            className={`icon-btn rounded-full border text-sm font-semibold backdrop-blur transition desk:h-auto desk:w-auto desk:min-w-11 desk:gap-2 desk:px-4 ${
               finderOpen || filterIsActive(programFilter)
                 ? "border-keiser-gold bg-keiser-gold/15 text-keiser-gold"
                 : "border-keiser-gold/40 bg-keiser-navy/70 text-keiser-gold hover:bg-keiser-gold/15"
             }`}
           >
             <SearchIcon />
-            <span className="hidden sm:inline">Find a program</span>
+            <span className="hidden desk:inline">Find a program</span>
           </button>
 
           {/* Guided-tour toggle */}
@@ -1172,10 +1181,10 @@ export default function CampusMap() {
             onClick={tourPlaying ? stopTour : startTour}
             aria-pressed={tourPlaying}
             aria-label={tourPlaying ? "Pause guided tour" : "Start guided tour"}
-            className="tap-target inline-flex items-center justify-center gap-2 rounded-full border border-keiser-gold/40 bg-keiser-navy/70 p-2 text-sm font-semibold text-keiser-gold backdrop-blur transition hover:bg-keiser-gold/15 sm:px-4"
+            className="icon-btn rounded-full border border-keiser-gold/40 bg-keiser-navy/70 text-sm font-semibold text-keiser-gold backdrop-blur transition hover:bg-keiser-gold/15 desk:h-auto desk:w-auto desk:min-w-11 desk:gap-2 desk:px-4"
           >
             {tourPlaying ? <PauseIcon /> : <PlayIcon />}
-            <span className="hidden sm:inline">{tourPlaying ? "Pause tour" : "Guided tour"}</span>
+            <span className="hidden desk:inline">{tourPlaying ? "Pause tour" : "Guided tour"}</span>
           </button>
 
           {/* AI concierge toggle */}
@@ -1185,42 +1194,42 @@ export default function CampusMap() {
               onClick={() => setAiOpen((v) => !v)}
               aria-pressed={aiOpen}
               aria-label="Ask the guide"
-              className={`tap-target inline-flex items-center justify-center gap-2 rounded-full border p-2 text-sm font-semibold backdrop-blur transition sm:px-4 ${
+              className={`icon-btn rounded-full border text-sm font-semibold backdrop-blur transition desk:h-auto desk:w-auto desk:min-w-11 desk:gap-2 desk:px-4 ${
                 aiOpen
                   ? "border-keiser-gold bg-keiser-gold/15 text-keiser-gold"
                   : "border-keiser-gold/40 bg-keiser-navy/70 text-keiser-gold hover:bg-keiser-gold/15"
               }`}
             >
               <GuideSparkleIcon />
-              <span className="hidden sm:inline">Ask the guide</span>
+              <span className="hidden desk:inline">Ask the guide</span>
             </button>
           )}
         </div>
       </header>
 
       {!inTour && !selected && (
-        <p className="pointer-events-none absolute left-3 right-3 top-[7.15rem] z-10 text-center text-[11px] text-slate-200/70 sm:hidden">
+        <p className="pointer-events-none absolute left-3 right-3 top-[6.75rem] z-10 text-center text-[11px] text-slate-200/70 desk:hidden">
           Drag to orbit · pinch to zoom · tap Campuses to fly
         </p>
       )}
 
-      {/* ---- Region filter + campus list (left rail; bottom sheet on phones) ---- */}
+      {/* ---- Region filter + campus list (rail on desk; bottom sheet otherwise) ---- */}
       {!inTour && !finderOpen && listOpen && (
         <button
           type="button"
           aria-label="Close campus list"
           onClick={() => setListOpen(false)}
-          className="fixed inset-0 z-20 bg-black/50 sm:hidden"
+          className="absolute inset-0 z-20 bg-black/50 desk:hidden"
         />
       )}
       {!inTour && !finderOpen && (
         <aside
-          className={`z-30 flex-col gap-3 max-sm:fixed max-sm:inset-x-0 max-sm:bottom-0 max-sm:h-[min(72dvh,32rem)] max-sm:rounded-t-2xl max-sm:border max-sm:border-b-0 max-sm:border-keiser-gold/30 max-sm:bg-keiser-navy/95 max-sm:px-3 max-sm:pt-3 max-sm:shadow-2xl sm:absolute sm:bottom-28 sm:left-6 sm:top-24 sm:flex sm:w-64 ${
-            listOpen ? "flex" : "hidden"
-          }`}
+          className={`z-30 flex-col gap-3 absolute inset-x-0 bottom-0 rounded-t-2xl border border-b-0 border-keiser-gold/30 bg-keiser-navy/95 px-3 pt-3 shadow-2xl desk:inset-auto desk:bottom-28 desk:left-6 desk:top-24 desk:w-64 desk:rounded-none desk:border-0 desk:bg-transparent desk:px-0 desk:pt-0 desk:shadow-none desk:flex ${
+            embedded ? "h-[min(55%,18rem)]" : "h-[min(70dvh,28rem)]"
+          } desk:h-auto ${listOpen ? "flex" : "hidden"}`}
           style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))" }}
         >
-          <div className="flex items-center justify-between gap-2 sm:hidden">
+          <div className="flex items-center justify-between gap-2 desk:hidden">
             <h2 className="font-display text-lg font-bold uppercase tracking-wide text-keiser-gold">
               Campuses
             </h2>
@@ -1228,7 +1237,7 @@ export default function CampusMap() {
               type="button"
               onClick={() => setListOpen(false)}
               aria-label="Close campus list"
-              className="tap-target inline-flex items-center justify-center rounded-full bg-white/10 text-slate-200"
+              className="icon-btn rounded-full bg-white/10 text-slate-200 ring-1 ring-keiser-gold/40"
             >
               <CloseIcon />
             </button>
@@ -1297,9 +1306,13 @@ export default function CampusMap() {
             type="button"
             aria-label="Close program finder"
             onClick={() => setFinderOpen(false)}
-            className="fixed inset-0 z-30 bg-black/50 sm:hidden"
+            className="absolute inset-0 z-30 bg-black/50 desk:hidden"
           />
-          <aside className="z-40 animate-fade-in max-sm:fixed max-sm:inset-x-0 max-sm:bottom-0 max-sm:h-[min(78dvh,36rem)] max-sm:pb-[env(safe-area-inset-bottom)] sm:absolute sm:bottom-28 sm:left-6 sm:top-24 sm:w-[min(88vw,21rem)]">
+          <aside
+            className={`z-40 animate-fade-in absolute inset-x-0 bottom-0 pb-[env(safe-area-inset-bottom)] desk:inset-auto desk:bottom-28 desk:left-6 desk:top-24 desk:w-[min(88vw,21rem)] desk:pb-0 ${
+              embedded ? "h-[min(58%,20rem)]" : "h-[min(76dvh,32rem)]"
+            } desk:h-auto`}
+          >
             <Suspense fallback={null}>
               <ProgramFinder
                 filter={programFilter}
@@ -1317,7 +1330,7 @@ export default function CampusMap() {
 
       {/* ---- Active program-filter pill (when the finder is collapsed) ---- */}
       {!inTour && !finderOpen && filterIsActive(programFilter) && (
-        <div className="absolute left-1/2 top-[7.25rem] z-30 w-[min(92vw,28rem)] -translate-x-1/2 animate-fade-in sm:top-20">
+        <div className="absolute left-1/2 top-[6.9rem] z-30 w-[min(92vw,28rem)] -translate-x-1/2 animate-fade-in desk:top-20">
           <div className="flex items-center gap-1.5 rounded-full border border-keiser-gold/40 bg-keiser-navy/85 py-1.5 pl-3.5 pr-1.5 shadow-2xl backdrop-blur">
             <button
               onClick={() => setFinderOpen(true)}
@@ -1347,21 +1360,21 @@ export default function CampusMap() {
       {/* ---- Campus info / admissions panel (right) ---- */}
       {selected && !inTour && (
         <section
-          className={`z-20 animate-fade-in max-sm:fixed max-sm:inset-x-0 max-sm:bottom-0 max-sm:max-h-[min(62dvh,28rem)] sm:absolute sm:bottom-28 sm:right-6 sm:top-24 sm:w-[min(92vw,22rem)] ${
-            embedded ? "max-sm:max-h-[min(50dvh,22rem)]" : ""
-          }`}
+          className={`z-40 animate-fade-in absolute inset-x-0 bottom-0 flex flex-col desk:inset-auto desk:bottom-28 desk:right-6 desk:top-24 desk:w-[min(92vw,22rem)] ${
+            embedded ? "max-h-[min(52%,20rem)]" : "max-h-[min(58dvh,24rem)]"
+          } desk:max-h-none`}
           style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
         >
-          <div className="flex h-full max-h-[inherit] flex-col overflow-hidden rounded-t-2xl border border-keiser-gold/30 bg-keiser-navy/90 shadow-2xl backdrop-blur-md sm:rounded-2xl">
+          <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-t-2xl border border-keiser-gold/30 bg-keiser-navy/95 shadow-2xl backdrop-blur-md desk:rounded-2xl">
             <CampusHero
               key={selected.id}
               campus={selected}
               tagline={panel?.tagline ?? selected.tagline}
               onClose={closePanel}
-              compact
+              compact={compact || embedded}
             />
 
-            <div className="scroll-slim flex-1 space-y-4 overflow-y-auto p-5">
+            <div className="scroll-slim min-h-0 flex-1 space-y-4 overflow-y-auto p-3 desk:p-5">
               {panelShowsLanguageToggle(selected) && (
                 <div
                   className="flex w-fit rounded-lg bg-white/10 p-0.5 ring-1 ring-white/15"
@@ -1445,7 +1458,7 @@ export default function CampusMap() {
               )}
             </div>
 
-            <div className="space-y-2 border-t border-white/10 p-4">
+            <div className="shrink-0 space-y-2 border-t border-white/10 p-3 desk:p-4">
               <button
                 onClick={enterTour}
                 className="tap-target w-full rounded-xl bg-keiser-gold py-3 text-sm font-bold text-keiser-navy transition hover:bg-keiser-flame"
@@ -1718,8 +1731,8 @@ function CampusHero({
 
   return (
     <div
-      className={`relative overflow-hidden bg-gradient-to-br from-keiser-blue to-keiser-navy p-5 ${
-        compact ? "min-h-[6.5rem]" : "min-h-[8.5rem]"
+      className={`relative overflow-hidden bg-gradient-to-br from-keiser-blue to-keiser-navy ${
+        compact ? "min-h-[5rem] p-3" : "min-h-[8.5rem] p-5"
       }`}
     >
       {hasPhoto && (
@@ -1746,7 +1759,7 @@ function CampusHero({
         <span className="text-[11px] font-semibold uppercase tracking-wider text-keiser-gold">
           {REGION_LABELS[campus.region]}
         </span>
-        <h2 className="mt-1 font-display text-2xl font-bold uppercase tracking-wide text-white drop-shadow">
+        <h2 className={`mt-1 font-display font-bold uppercase tracking-wide text-white drop-shadow ${compact ? "text-xl" : "text-2xl"}`}>
           {campus.name}
         </h2>
         <p className="text-sm text-slate-200 drop-shadow">{campusLocation(campus)}</p>

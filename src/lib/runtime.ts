@@ -1,13 +1,14 @@
 // Device / embed / GPU helpers shared by the globe, Florida flyover, and tiles.
-// Keep these cheap and mount-stable: they run once on first paint so a resize
-// does not rebuild WebGL scenes.
 
+import { useEffect, useState } from "react";
 import * as THREE from "three";
 
 type PowerPreference = "default" | "high-performance" | "low-power";
 
 /** CSS breakpoint that matches Tailwind `sm` (640px). */
 export const NARROW_MQ = "(max-width: 639px)";
+/** Matches Tailwind `desk` — wide AND tall. Landscape phones stay compact. */
+export const DESK_MQ = "(min-width: 900px) and (min-height: 700px)";
 
 export function prefersReducedMotion(): boolean {
   return typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -46,7 +47,26 @@ export function isLowPowerDevice(): boolean {
 }
 
 export function canvasDpr(lowPower: boolean): [number, number] {
-  return lowPower ? [1, 1.25] : [1, 2];
+  return lowPower ? [1, 1] : [1, 2];
+}
+
+/** Compact chrome: phone, landscape phone, tablet, or iframe embed. */
+export function isCompactChrome(): boolean {
+  if (typeof window === "undefined") return true;
+  if (readEmbedFlag()) return true;
+  return !window.matchMedia(DESK_MQ).matches;
+}
+
+export function useCompactChrome(): boolean {
+  const [compact, setCompact] = useState(() => isCompactChrome());
+  useEffect(() => {
+    const mq = window.matchMedia(DESK_MQ);
+    const sync = () => setCompact(readEmbedFlag() || !mq.matches);
+    sync();
+    mq.addEventListener("change", sync);
+    return () => mq.removeEventListener("change", sync);
+  }, []);
+  return compact;
 }
 
 export function canvasGlProps(lowPower: boolean): {
