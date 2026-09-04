@@ -868,10 +868,12 @@ export default function CampusMap() {
     setInTour(false);
     setViewMode("florida");
     setMapIntro(true);
-    if (selectedId && !FLORIDA_MAP_IDS.has(selectedId)) {
-      setSelectedId(null);
-      stopSpeaking();
-    }
+    // Always land on the full-peninsula overview. Deep links still set campus
+    // from the URL on first load before this handler runs.
+    setSelectedId(null);
+    setHoveredId(null);
+    setListOpen(false);
+    stopSpeaking();
   }
 
   function enterGlobe() {
@@ -1209,7 +1211,7 @@ export default function CampusMap() {
 
       {!inTour && !selected && (
         <p className="pointer-events-none absolute left-3 right-3 top-[6.75rem] z-10 text-center text-[11px] text-slate-200/70 desk:hidden">
-          Drag to orbit · pinch to zoom · tap Campuses to fly
+          Drag to orbit · pinch to zoom
         </p>
       )}
 
@@ -1550,7 +1552,7 @@ export default function CampusMap() {
       )}
 
       {/* ---- Skip the Florida-map intro flyover ---- */}
-      {viewMode === "florida" && mapIntro && !inTour && (
+      {viewMode === "florida" && mapIntro && !inTour && !selected && (
         <div className="absolute bottom-[max(1.25rem,calc(env(safe-area-inset-bottom)+0.75rem))] left-1/2 z-50 -translate-x-1/2 animate-fade-in">
           <button
             type="button"

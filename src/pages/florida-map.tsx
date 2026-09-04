@@ -8,9 +8,9 @@ import { WATER_Y, latLngToMap } from "../lib/florida-geo";
 import { buildFloridaTerrain, type FloridaTerrain } from "../lib/florida-terrain";
 import {
   INTRO_WAYPOINTS,
-  OVERVIEW_LOOK,
   approachOf,
   floridaSitePoses,
+  overviewLook,
   overviewPos,
   sameMapCampus,
   type HeightSampler,
@@ -409,7 +409,7 @@ function CampusMarkers({
   );
 }
 
-function introCurves(restPos: [number, number, number]) {
+function introCurves(restPos: [number, number, number], restLook: [number, number, number]) {
   const posPts = INTRO_WAYPOINTS.map((w) => {
     const [x, , z] = latLngToMap(w.lat, w.lng);
     return new THREE.Vector3(x, w.alt, z);
@@ -419,7 +419,7 @@ function introCurves(restPos: [number, number, number]) {
     return new THREE.Vector3(x, w.lookY, z);
   });
   posPts.push(new THREE.Vector3(...restPos));
-  lookPts.push(new THREE.Vector3(...OVERVIEW_LOOK));
+  lookPts.push(new THREE.Vector3(...restLook));
   return {
     pos: new THREE.CatmullRomCurve3(posPts, false, "catmullrom", 0.25),
     look: new THREE.CatmullRomCurve3(lookPts, false, "catmullrom", 0.25),
@@ -434,6 +434,7 @@ function MapRig({
   heightAt,
   sites,
   restPos,
+  restLook,
 }: {
   selectedId: string | null;
   playIntro: boolean;
@@ -442,6 +443,7 @@ function MapRig({
   heightAt: HeightSampler;
   sites: SitePose[];
   restPos: [number, number, number];
+  restLook: [number, number, number];
 }) {
   const { camera } = useThree();
   const flight = useRef({
@@ -454,10 +456,10 @@ function MapRig({
     lastId: null as string | null | undefined,
     introDone: false,
   });
-  const look = useRef(new THREE.Vector3(...OVERVIEW_LOOK));
+  const look = useRef(new THREE.Vector3(...restLook));
   const doneRef = useRef(onIntroFinished);
   doneRef.current = onIntroFinished;
-  const curves = useMemo(() => introCurves(restPos), [restPos]);
+  const curves = useMemo(() => introCurves(restPos, restLook), [restPos, restLook]);
 
   useEffect(() => {
     const f = flight.current;
@@ -469,7 +471,7 @@ function MapRig({
         look.current.set(...next.look);
       } else {
         camera.position.set(...restPos);
-        look.current.set(...OVERVIEW_LOOK);
+        look.current.set(...restLook);
       }
       setView(camera, camera.position, look.current);
       f.introDone = true;
@@ -491,7 +493,7 @@ function MapRig({
     camera.position.copy(p);
     look.current.copy(l);
     setView(camera, p, l, 0.14);
-  }, [playIntro, camera, controlsRef, heightAt, selectedId, curves, sites, restPos]);
+  }, [playIntro, camera, controlsRef, heightAt, selectedId, curves, sites, restPos, restLook]);
 
   useEffect(() => {
     const f = flight.current;
@@ -506,12 +508,12 @@ function MapRig({
       f.toLook.set(...next.look);
     } else {
       f.toPos.set(...restPos);
-      f.toLook.set(...OVERVIEW_LOOK);
+      f.toLook.set(...restLook);
     }
     f.t = 0;
     f.mode = "fly";
     if (controlsRef.current) controlsRef.current.enabled = false;
-  }, [selectedId, playIntro, camera, controlsRef, heightAt, sites, restPos]);
+  }, [selectedId, playIntro, camera, controlsRef, heightAt, sites, restPos, restLook]);
 
   useFrame((_, delta) => {
     const f = flight.current;
@@ -588,7 +590,7 @@ function FloridaWorld({
   return (
     <>
       <PaintedSky />
-      <fog attach="fog" args={["#9ec9e6", 28, 78]} />
+      <fog attach="fog" args={compact ? ["#8ec4e8", 55, 140] : ["#9ec9e6", 28, 78]} />
       <hemisphereLight args={["#d5e8ff", "#3d5a28", 0.62]} />
       <ambientLight intensity={0.16} />
       <directionalLight
@@ -631,6 +633,7 @@ function FloridaWorld({
         heightAt={terrain.heightAt}
         sites={sites}
         restPos={overviewPos(compact)}
+        restLook={overviewLook(compact)}
       />
     </>
   );
@@ -657,11 +660,12 @@ export default function FloridaMapView({
 }) {
   const controlsRef = useRef<OrbitControlsImpl | null>(null);
   const rest = overviewPos(compact);
+  const look = overviewLook(compact);
 
   return (
     <Canvas
       className="absolute inset-0"
-      camera={{ position: rest, fov: compact ? 58 : 46, near: 0.08, far: 180 }}
+      camera={{ position: rest, fov: compact ? 64 : 46, near: 0.08, far: 220 }}
       gl={canvasGlProps(lowPower)}
       dpr={canvasDpr(lowPower)}
       shadows={!lowPower}
@@ -689,10 +693,10 @@ export default function FloridaMapView({
         enableDamping
         dampingFactor={0.08}
         minDistance={1.8}
-        maxDistance={compact ? 28 : 18}
-        minPolarAngle={compact ? 0.28 : 0.72}
+        maxDistance={compact ? 42 : 18}
+        minPolarAngle={compact ? 0.18 : 0.72}
         maxPolarAngle={1.28}
-        target={OVERVIEW_LOOK}
+        target={look}
         touches={TOUCH_ORBIT_PAN}
         zoomSpeed={0.75}
         rotateSpeed={0.55}

@@ -72,17 +72,24 @@ export const OVERVIEW_POS: [number, number, number] = (() => {
   return [x - 0.4, 8.4, z + 1.15];
 })();
 
+/** Center of the state — used as the compact look-at. */
+export const OVERVIEW_LOOK_COMPACT = latLngToMap(28.05, -83.35, 0.05);
+
 /**
- * Phone / landscape / embed: pull the camera up and back so the Keys and
- * panhandle both fit a short viewport. Desktop keeps the closer cinematic seat.
+ * Phone / landscape / embed: high and south so Keys + panhandle fit a
+ * short viewport. Desktop keeps the closer cinematic seat.
  */
 export const OVERVIEW_POS_COMPACT: [number, number, number] = (() => {
-  const [x, , z] = latLngToMap(23.7, -85.85);
-  return [x, 16.4, z + 3.2];
+  const [x, , z] = latLngToMap(28.0, -83.4);
+  return [x, 34, z + 3];
 })();
 
 export function overviewPos(compact: boolean): [number, number, number] {
   return compact ? OVERVIEW_POS_COMPACT : OVERVIEW_POS;
+}
+
+export function overviewLook(compact: boolean): [number, number, number] {
+  return compact ? OVERVIEW_LOOK_COMPACT : OVERVIEW_LOOK;
 }
 
 export interface SitePose {
