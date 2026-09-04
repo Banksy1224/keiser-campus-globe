@@ -4,6 +4,7 @@
 // the left rail on desktop and slides up as a drawer on mobile.
 
 import { useEffect, useMemo, useRef } from "react";
+import { isCoarsePointer } from "../lib/runtime";
 import { campusLocation, type Campus } from "../lib/campus-data";
 import {
   availableDisciplines,
@@ -38,7 +39,7 @@ export default function ProgramFinder({
   const levels = useMemo(() => availableLevels(), []);
 
   useEffect(() => {
-    inputRef.current?.focus();
+    if (!isCoarsePointer()) inputRef.current?.focus();
   }, []);
 
   return (
@@ -52,9 +53,10 @@ export default function ProgramFinder({
           </h2>
         </div>
         <button
+          type="button"
           onClick={onClose}
           aria-label="Close program finder"
-          className="rounded-full bg-white/10 p-1.5 text-slate-200 transition hover:bg-white/20"
+          className="tap-target inline-flex items-center justify-center rounded-full bg-white/10 text-slate-200 transition hover:bg-white/20"
         >
           <CloseIcon />
         </button>
@@ -160,7 +162,7 @@ export default function ProgramFinder({
                   onClick={() => onSelect(campus)}
                   onMouseEnter={() => onHover(campus.id)}
                   onMouseLeave={() => onHover(null)}
-                  className={`w-full rounded-lg border px-3 py-2 text-left transition ${
+                  className={`min-h-11 w-full rounded-lg border px-3 py-2 text-left transition ${
                     selectedId === campus.id
                       ? "border-keiser-gold/70 bg-keiser-gold/15"
                       : "border-white/10 bg-white/5 hover:border-keiser-gold/40 hover:bg-white/10"
@@ -202,7 +204,7 @@ function Chip({
     <button
       onClick={onClick}
       aria-pressed={on}
-      className={`rounded-full px-3 py-1 text-xs font-semibold transition ${
+      className={`tap-target inline-flex items-center rounded-full px-3 text-xs font-semibold transition ${
         on
           ? "bg-keiser-gold text-keiser-navy"
           : "border border-white/15 bg-white/5 text-slate-200 hover:bg-white/10"

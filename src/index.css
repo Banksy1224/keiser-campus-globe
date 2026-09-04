@@ -6,12 +6,18 @@
 
 :root {
   color-scheme: dark;
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-right: env(safe-area-inset-right, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-left: env(safe-area-inset-left, 0px);
 }
 
 html,
 body,
 #root {
   height: 100%;
+  min-height: 100%;
+  min-height: 100dvh;
   margin: 0;
 }
 
@@ -21,6 +27,31 @@ body {
   font-family: "Roboto", system-ui, Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
   overflow: hidden;
+}
+
+/* Iframe embed on Contact / Campuses: fill the frame, stay 70–80vh friendly. */
+html.is-embed,
+html.is-embed body,
+html.is-embed #root {
+  min-height: 70vh;
+  height: 100%;
+  overscroll-behavior: none;
+}
+
+/* OrbitControls owns one-finger rotate + pinch-zoom. The host page should
+   size the iframe so users scroll *around* it (see README). */
+canvas {
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+@layer components {
+  /* WCAG / Apple HIG: ≥44×44px tap targets on phones. */
+  .tap-target {
+    min-height: 44px;
+    min-width: 44px;
+  }
 }
 
 /* Visible focus ring for keyboard users (mouse clicks stay clean via

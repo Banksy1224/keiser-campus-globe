@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Keiser University · globe embed preview</title>
+    <link rel="stylesheet" href="./embed-host.css" />
+    <style>
+      body {
+        margin: 0;
+        font-family: system-ui, sans-serif;
+        background: #f2f2f2;
+        color: #1a2744;
+      }
+      main {
+        max-width: 960px;
+        margin: 0 auto;
+        padding: 1rem 1rem 3rem;
+      }
+      h1 {
+        font-size: 1.25rem;
+        margin: 0 0 0.5rem;
+      }
+      p {
+        line-height: 1.45;
+        margin: 0 0 1rem;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Campus globe · host-page preview</h1>
+      <p>
+        This page mimics Contact / Campuses: a scrolling host around a sized iframe.
+        One-finger rotate and pinch-zoom live inside the frame; scroll this page
+        from the copy above or below it.
+      </p>
+      <div class="keiser-globe-embed-wrap">
+        <iframe
+          class="keiser-globe-embed"
+          src="./?embed=1"
+          title="Keiser University campus globe"
+          loading="lazy"
+          allow="fullscreen; xr-spatial-tracking"
+          allowfullscreen
+        ></iframe>
+      </div>
+      <p>
+        Florida flyover:
+        <a href="./embed-demo-florida.html">open the Florida embed preview</a>
+        or
+        <a href="./?embed=1&amp;view=florida">open Florida full-frame</a>.
+      </p>
+    </main>
+  </body>
+</html>

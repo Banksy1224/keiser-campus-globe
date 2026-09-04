@@ -16,6 +16,8 @@ export interface ShareState {
   tour?: boolean;
   /** Geographic Florida flyover (`florida`) vs the 3D globe. */
   view?: "florida" | null;
+  /** Tight chrome for iframe embeds on university pages. */
+  embed?: boolean;
 }
 
 /** Parse the current URL into a ShareState. */
@@ -29,6 +31,7 @@ export function readShareParams(): ShareState {
     level: p.get("level"),
     tour: tour === "1" || tour === "3d",
     view: p.get("view") === "florida" ? "florida" : null,
+    embed: p.get("embed") === "1" || p.get("embed") === "true" || p.get("embed") === "yes",
   };
 }
 
@@ -42,6 +45,7 @@ export function shareUrlFor(state: ShareState): string {
   if (state.level) p.set("level", state.level);
   if (state.tour && state.campusId) p.set("tour", "1");
   if (state.view === "florida") p.set("view", "florida");
+  if (state.embed) p.set("embed", "1");
   const qs = p.toString();
   return qs ? `${base}?${qs}` : base;
 }
