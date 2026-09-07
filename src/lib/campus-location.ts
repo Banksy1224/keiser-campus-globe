@@ -5,11 +5,21 @@ import { useEffect, useState } from "react";
 import type { Campus } from "./campus-data";
 
 // Client-side Google Maps Platform key. Must be HTTP-referrer restricted in the
-// Google Cloud console, since it ships in the bundle.
-export const GOOGLE_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string | undefined;
+// Google Cloud console, since it ships in the bundle. Vite exposes
+// `VITE_GOOGLE_MAPS_API_KEY`; `GOOGLE_MAPS_API_KEY` is also accepted.
+const rawGoogleKey =
+  (import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string | undefined) ??
+  (import.meta.env.GOOGLE_MAPS_API_KEY as string | undefined);
+export const GOOGLE_KEY = rawGoogleKey?.trim() || undefined;
 
 /** True when a Google key is configured at build time. */
 export const TILES_ENABLED = Boolean(GOOGLE_KEY);
+
+/** Immediate campus coordinates: verified precise pin, else catalog lat/lng. */
+export function campusLatLng(campus: Campus): { lat: number; lng: number } {
+  const p = PRECISE[campus.id];
+  return p ? { lat: p[0], lng: p[1] } : { lat: campus.lat, lng: campus.lng };
+}
 
 // Verified precise coordinates (campus id → [lat, lng]). These render exactly
 // even without the Geocoding API enabled.

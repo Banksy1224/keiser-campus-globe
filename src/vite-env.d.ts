@@ -2,6 +2,7 @@
 
 interface ImportMetaEnv {
   readonly VITE_GOOGLE_MAPS_API_KEY?: string;
+  readonly GOOGLE_MAPS_API_KEY?: string;
   readonly VITE_AI_ENDPOINT?: string;
   readonly VITE_WEB3FORMS_KEY?: string;
   readonly VITE_LEAD_EMAIL?: string;
@@ -11,3 +12,6 @@ interface ImportMetaEnv {
 interface ImportMeta {
   readonly env: ImportMetaEnv;
 }
+
+/** Injected by Vite (`cesiumStaticAssets`) so Cesium workers resolve on Pages. */
+declare const CESIUM_BASE_URL: string;

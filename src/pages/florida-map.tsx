@@ -13,6 +13,7 @@ import {
   overviewLook,
   overviewPos,
   sameMapCampus,
+  type FloridaViewProps,
   type HeightSampler,
   type SitePose,
 } from "../lib/florida-map";
@@ -639,6 +640,7 @@ function FloridaWorld({
   );
 }
 
+/** Stylized Three.js peninsula — used when no Google Map Tiles key is set. */
 export default function FloridaMapView({
   selectedId,
   hoveredId,
@@ -648,16 +650,7 @@ export default function FloridaMapView({
   onSelect,
   lowPower = false,
   compact = false,
-}: {
-  selectedId: string | null;
-  hoveredId: string | null;
-  playIntro: boolean;
-  onIntroFinished: () => void;
-  onHover: (id: string | null) => void;
-  onSelect: (campus: Campus) => void;
-  lowPower?: boolean;
-  compact?: boolean;
-}) {
+}: FloridaViewProps) {
   const controlsRef = useRef<OrbitControlsImpl | null>(null);
   const rest = overviewPos(compact);
   const look = overviewLook(compact);

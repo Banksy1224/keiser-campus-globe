@@ -37,10 +37,11 @@ jobs:
       - name: Build
         run: npm run build
         env:
-          # Optional: enables the Google Photorealistic 3D campus tour.
-          # Add a repo secret named VITE_GOOGLE_MAPS_API_KEY (Map Tiles API,
-          # HTTP-referrer restricted). Without it, the app falls back to the
-          # stylized 3D campus scene.
+          # Optional: Google Photorealistic 3D Tiles (Map Tiles API) for the
+          # Cesium Florida campus map and in-tour aerial 3D. Add a repo secret
+          # named VITE_GOOGLE_MAPS_API_KEY, HTTP-referrer restricted to
+          # https://banksy1224.github.io/* and https://www.keiseruniversity.edu/*.
+          # Without it, Florida shows an in-app key message + stylized peninsula.
           VITE_GOOGLE_MAPS_API_KEY: ${{ secrets.VITE_GOOGLE_MAPS_API_KEY }}
           # Railway API for concierge + POST /api/rfi. Repo var overrides.
           VITE_AI_ENDPOINT: ${{ vars.VITE_AI_ENDPOINT || 'https://keiser-campus-globe-production.up.railway.app' }}
