@@ -27,12 +27,13 @@ Built as a **tour and admissions tool** for prospective students.
   from each campus's skyline, a central Keiser "flame" monument, trees, and a
   plaza — with admissions CTAs.
 
-**Florida map flyover (second mode)**
-- A **Florida map** toggle opens a **3D geographic flyover** of Florida: the real peninsula coastline (public GeoJSON, lat/lng) sitting in ocean, with height so a drone camera has altitude, tilt, and bank. The promotional poster is not used as ground, terrain, or campus sprites. The 3D Earth globe is unchanged.
-- Each Florida campus is a volumetric 3D skyline at its catalog `lat`/`lng`. Flagship and West Palm Beach stay separate. Miami is one site. Graduate School and Online sit on the Fort Lauderdale corridor (they already have pins).
-- Opening cinematic flies Keys → Miami → east coast / I-4 → panhandle. Skippable; honors `prefers-reduced-motion`.
-- After the intro, orbit / pan / zoom in 3D (the camera cannot flatten to a top-down poster). Click a 3D campus or a row in the left-rail legend to descend; the selected campus **pulses**.
+**Florida map (photoreal 3D)**
+- A **Florida map** toggle opens **Google Photorealistic 3D Tiles** of the state (CesiumJS + Map Tiles API): real buildings and terrain, tilted like Google Maps 3D — not a flat poster. The rotating Three.js Earth globe is unchanged.
+- All catalog Florida sites stay pinned at their real `lat`/`lng` (19 career / Flagship campuses plus Graduate School and Online on the Fort Lauderdale corridor). Flagship and West Palm Beach stay separate. Miami is one site.
+- Numbered gold markers sit on the photoreal mesh; the selected campus **pulses**. Click a pin or a left-rail row to **fly to** that campus.
+- Default / `?view=florida` frames the peninsula (Keys → panhandle). Opening cinematic is skippable and honors `prefers-reduced-motion`.
 - Deep link: `?view=florida` or `?view=florida&campus=miami`.
+- Without `VITE_GOOGLE_MAPS_API_KEY`, Florida shows a clear in-app message and keeps the stylized 3D peninsula so embed / local preview still work.
 
 **Guided tour (kiosk mode)**
 - A **Guided tour** button auto-flies through every campus on a loop, dwelling at
@@ -54,11 +55,12 @@ Built as a **tour and admissions tool** for prospective students.
 ## Tech stack
 
 - **React 18 + TypeScript + Vite**
-- **Three.js** via **@react-three/fiber** and **@react-three/drei**
+- **Three.js** via **@react-three/fiber** and **@react-three/drei** (world globe + stylized fallback)
+- **CesiumJS** + **Google Photorealistic 3D Tiles** (Florida campus map)
 - **Tailwind CSS** for the 2D admissions UI overlay
 
-The 3D experience is code-split (lazy-loaded), so the Three.js bundle lands in
-its own chunk and the initial shell stays light.
+The 3D experience is code-split (lazy-loaded). Three.js loads with the globe;
+Cesium loads only when Florida photoreal mode is opened.
 
 ## Getting started
 
@@ -174,33 +176,55 @@ Live host-page previews (scrollable page + iframe):
 **WebGL:** no extra `allow` token is required for WebGL. If a future host CSP
 uses `default-src` without `https://banksy1224.github.io`, textures and the
 module graph will fail — add that origin to `script-src`, `style-src`,
-`img-src`, `connect-src`, and `worker-src` as needed.
+`img-src`, `connect-src`, and `worker-src` as needed. Photoreal Florida also
+needs `https://tile.googleapis.com` on `connect-src` (and `worker-src` if you
+lock workers down).
 
 If Keiser later serves the globe from a custom domain, keep
 `frame-ancestors` listing the university hosts and **do not** add
 `X-Frame-Options: DENY` or `SAMEORIGIN`.
 
-## Photoreal 3D campus tour (Google 3D Tiles)
+## Photoreal 3D (Google Map Tiles API)
 
-"Enter 3D campus tour" can render **real Google Photorealistic 3D Tiles** of a
-campus's actual location (photogrammetry buildings + terrain), via
-[`3d-tiles-renderer`](https://github.com/NASA-AMMOS/3DTilesRendererJS). It's
-**optional** and lazy-loaded — without a key, tours fall back to the stylized
-3D scene, and the tiles library never downloads.
+The same browser key powers two views:
 
-**Enable it:**
-1. In [Google Cloud Console](https://console.cloud.google.com/), enable the
-   **Map Tiles API** and create an API key.
-2. **Restrict the key by HTTP referrer** (e.g. `https://banksy1224.github.io/*`)
-   — it ships in the client bundle, so this is important.
-3. Provide the key as `VITE_GOOGLE_MAPS_API_KEY`:
+| View | Renderer | When |
+| --- | --- | --- |
+| **Florida map** (`?view=florida`) | CesiumJS + `createGooglePhotorealistic3DTileset` | Florida toggle / embed |
+| **Walk this campus** | [`3d-tiles-renderer`](https://github.com/NASA-AMMOS/3DTilesRendererJS) | After selecting a campus |
+
+Both are **optional** and lazy-loaded. Without a key, Florida shows an in-app
+setup message (plus the stylized peninsula), and campus tours stay on the
+stylized 3D scene — never a blank WebGL fail.
+
+### Enable Photorealistic 3D Tiles
+
+1. In [Google Cloud Console](https://console.cloud.google.com/), create or pick
+   a project with **billing enabled**.
+2. Enable **Map Tiles API** (this is the Photorealistic 3D Tiles product).
+3. Create an **API key**. Restrict it:
+   - **Application restriction:** HTTP referrers
+     - `https://banksy1224.github.io/*` (GitHub Pages)
+     - `https://www.keiseruniversity.edu/*` (Contact / Campuses iframe)
+     - `http://localhost:5173/*` (local Vite; optional)
+   - **API restriction:** Map Tiles API (add Geocoding / Maps Embed / Street
+     View Static if you use those tour features below).
+4. Provide the key as `VITE_GOOGLE_MAPS_API_KEY` (alias: `GOOGLE_MAPS_API_KEY`):
    - Local: copy `.env.example` → `.env.local` and paste the key.
    - Deploy: add a **repo secret** named `VITE_GOOGLE_MAPS_API_KEY` (the deploy
      workflow already passes it into the build).
 
-**Cost:** the Map Tiles API is usage-based (Google's pricing / free monthly
-credit). For a public admissions tool, keep the referrer restriction on and
-monitor usage in the Google Cloud console.
+Never commit a real key. It ships in the client bundle — referrer + API
+restrictions are what keep it from being reused on other sites.
+
+**Cost:** Map Tiles API is usage-based (Google's pricing / free monthly credit).
+For a public admissions tool, keep the referrer restriction on and monitor
+usage in the Google Cloud console.
+
+**Host CSP** (if Contact / Campuses sets `connect-src`): allow
+`https://tile.googleapis.com` so Cesium can fetch 3D tiles. Also keep
+`https://banksy1224.github.io` on `script-src`, `style-src`, `img-src`,
+`worker-src` as already noted above.
 
 **Precise campus locations:** the tour centers on each campus's real
 coordinates. Verified campuses are hard-coded; the rest are **geocoded from

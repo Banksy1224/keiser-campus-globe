@@ -4,9 +4,27 @@
 // Flagship and West Palm Beach stay separate. Miami is one site. Graduate
 // School and Online sit on the Fort Lauderdale corridor because they already
 // have pins in the catalog. No invented campuses.
+//
+// Photoreal path: CesiumJS + Google Photorealistic 3D Tiles (`florida-cesium`).
+// This module stays the shared roster / framing source for both that view and
+// the stylized Three.js peninsula fallback.
 
 import { campusById, resolveCampusId, type Campus } from "./campus-data";
 import { latLngToMap } from "./florida-geo";
+
+/** Props shared by the Cesium Florida view and the stylized Three.js fallback. */
+export interface FloridaViewProps {
+  selectedId: string | null;
+  hoveredId: string | null;
+  playIntro: boolean;
+  onIntroFinished: () => void;
+  onHover: (id: string | null) => void;
+  onSelect: (campus: Campus) => void;
+  lowPower?: boolean;
+  compact?: boolean;
+  /** Cesium / Map Tiles failure — parent can fall back to the stylized map. */
+  onTilesFailed?: (message: string) => void;
+}
 
 /** Official catalog id (`flagship` → `flagship-wpb` on main). */
 export function mapCampusId(id: string): string {

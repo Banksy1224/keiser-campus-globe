@@ -13,11 +13,12 @@ const RfiSheet = lazy(() => import("../components/rfi-sheet"));
 const ProgramFinder = lazy(() => import("../components/program-finder"));
 // Share sheet — lazy; only loads when "Share" is opened.
 const ShareMenu = lazy(() => import("../components/share-menu"));
-// Geographic Florida flyover — lazy; only loads when that mode is opened.
-const FloridaMapView = lazy(() => import("./florida-map"));
-// A Google Maps key (Map Tiles API) enables the photoreal 3D campus tour;
-// without it we fall back to the stylized 3D scene. Kept local so the heavy
-// tiles module stays out of the main chunk.
+// Florida view — Cesium + Google Photorealistic 3D Tiles when a key is set,
+// stylized Three.js peninsula otherwise. Lazy so Cesium stays out of the globe.
+const FloridaMapView = lazy(() => import("./florida-view"));
+// A Google Maps key (Map Tiles API) enables photoreal 3D campus tours *and*
+// the Florida Cesium map; without it, tours and Florida fall back to stylized
+// 3D. Kept local so the heavy tiles / Cesium modules stay out of the main chunk.
 const TILES_ENABLED = Boolean(import.meta.env.VITE_GOOGLE_MAPS_API_KEY);
 // A configured backend endpoint enables the AI concierge.
 const AI_ENABLED = Boolean(import.meta.env.VITE_AI_ENDPOINT);
@@ -974,8 +975,8 @@ export default function CampusMap() {
       ? `3D tour · ${selected.name}`
       : viewMode === "florida"
         ? mapIntro
-          ? "Florida flyover · Keys to panhandle · skip anytime"
-          : "Orbit the 3D peninsula · click a campus to descend"
+          ? "Florida 3D · Keys to panhandle · skip anytime"
+          : "Orbit Florida in 3D · click a campus to fly in"
         : "Drag to orbit · scroll to zoom · click a campus to fly in";
 
   const listCampuses = viewMode === "florida" ? floridaMapCampuses() : visibleCampuses;
