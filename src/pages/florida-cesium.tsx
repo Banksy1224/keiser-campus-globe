@@ -3,11 +3,11 @@ import "../lib/cesium-base";
 import "cesium/Build/Cesium/Widgets/widgets.css";
 import "./florida-cesium.css";
 import { FLAME_GOLD, campusById, type Campus } from "../lib/campus-data";
-import { campusLatLng, GOOGLE_KEY } from "../lib/campus-location";
-import { campusSkylineUrl, plazaRadius, SKYLINE_UNIT_METERS } from "../lib/campus-skyline";
+import { campusLatLng, resolveCampusLatLng, GOOGLE_KEY } from "../lib/campus-location";
 import {
   FLORIDA_INTRO_SEATS,
-  campusApproachSeat,
+  campusApproach,
+  drawCampusPin,
   floridaOverviewSeat,
   type CameraSeat,
 } from "../lib/florida-cesium";
@@ -22,6 +22,7 @@ import { prefersReducedMotion } from "../lib/runtime";
 type CesiumNS = typeof import("cesium");
 type Viewer = import("cesium").Viewer;
 type Entity = import("cesium").Entity;
+type Cartesian3 = import("cesium").Cartesian3;
 
 const PIN_PREFIX = "campus:";
 const PULSE_PREFIX = "pulse:";
@@ -41,30 +42,50 @@ function campusIdFromEntity(entity: Entity | undefined): string | null {
   return null;
 }
 
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => window.setTimeout(resolve, ms));
+}
+
+/** Heading/pitch from `from` looking at `to` in the local ENU frame. */
+function headingPitchFromTo(C: CesiumNS, from: Cartesian3, to: Cartesian3) {
+  const enu = C.Transforms.eastNorthUpToFixedFrame(from);
+  const inv = C.Matrix4.inverseTransformation(enu, new C.Matrix4());
+  const local = C.Matrix4.multiplyByPoint(inv, to, new C.Cartesian3());
+  return {
+    heading: Math.atan2(local.x, local.y),
+    pitch: Math.atan2(local.z, Math.hypot(local.x, local.y)),
+    roll: 0,
+  };
+}
+
 function seatDestination(C: CesiumNS, seat: CameraSeat) {
   return C.Cartesian3.fromDegrees(seat.lng, seat.lat, seat.height);
 }
 
 function seatOrientation(C: CesiumNS, seat: CameraSeat) {
+  if (seat.lookLat != null && seat.lookLng != null) {
+    const dest = seatDestination(C, seat);
+    const target = C.Cartesian3.fromDegrees(seat.lookLng, seat.lookLat, seat.lookHeight ?? 20);
+    return headingPitchFromTo(C, dest, target);
+  }
   return {
-    heading: C.Math.toRadians(seat.heading),
-    pitch: C.Math.toRadians(seat.pitch),
+    heading: C.Math.toRadians(seat.heading ?? 0),
+    pitch: C.Math.toRadians(seat.pitch ?? -35),
     roll: 0,
   };
 }
 
 function applySeat(C: CesiumNS, viewer: Viewer, seat: CameraSeat, animate: boolean): Promise<void> {
+  const destination = seatDestination(C, seat);
+  const orientation = seatOrientation(C, seat);
   if (!animate || seat.duration <= 0) {
-    viewer.camera.setView({
-      destination: seatDestination(C, seat),
-      orientation: seatOrientation(C, seat),
-    });
+    viewer.camera.setView({ destination, orientation });
     return Promise.resolve();
   }
   return new Promise((resolve) => {
     viewer.camera.flyTo({
-      destination: seatDestination(C, seat),
-      orientation: seatOrientation(C, seat),
+      destination,
+      orientation,
       duration: seat.duration,
       complete: () => resolve(),
       cancel: () => resolve(),
@@ -72,25 +93,98 @@ function applySeat(C: CesiumNS, viewer: Viewer, seat: CameraSeat, animate: boole
   });
 }
 
-function pulseScale(selected: boolean): number {
-  if (!selected || prefersReducedMotion()) return 1;
-  const t = performance.now() / 1000;
-  return 1 + 0.12 * (0.5 + 0.5 * Math.sin(t * 3.6));
+async function samplePoiHeight(C: CesiumNS, viewer: Viewer, lat: number, lng: number): Promise<number> {
+  const carto = C.Cartographic.fromDegrees(lng, lat);
+  try {
+    await Promise.race([viewer.scene.sampleHeightMostDetailed([carto]), sleep(1800)]);
+  } catch {
+    /* ellipsoid / no tile yet */
+  }
+  return Number.isFinite(carto.height) ? carto.height : 0;
 }
 
-function styleSkyline(C: CesiumNS, entity: Entity, selected: boolean, hovered: boolean) {
-  const hot = selected || hovered;
-  if (entity.model) {
-    entity.model.scale = new C.CallbackProperty(() => pulseScale(selected), false);
-    entity.model.silhouetteSize = new C.ConstantProperty(hot ? 2.4 : 0);
-    entity.model.silhouetteColor = new C.ConstantProperty(C.Color.fromCssColorString(FLAME_GOLD));
-    entity.model.color = new C.ConstantProperty(
-      selected ? C.Color.fromCssColorString(FLAME_GOLD) : C.Color.WHITE,
+function poiCartesian(C: CesiumNS, lat: number, lng: number, height: number, lookUpM: number) {
+  return C.Cartesian3.fromDegrees(lng, lat, height + lookUpM);
+}
+
+function flyToSphere(
+  C: CesiumNS,
+  viewer: Viewer,
+  target: Cartesian3,
+  headingDeg: number,
+  pitchDeg: number,
+  rangeM: number,
+  duration: number,
+): Promise<void> {
+  const sphere = new C.BoundingSphere(target, 24);
+  const offset = new C.HeadingPitchRange(C.Math.toRadians(headingDeg), C.Math.toRadians(pitchDeg), rangeM);
+  if (duration <= 0) {
+    viewer.camera.viewBoundingSphere(sphere, offset);
+    viewer.camera.lookAtTransform(C.Matrix4.IDENTITY);
+    return Promise.resolve();
+  }
+  return new Promise((resolve) => {
+    viewer.camera.flyToBoundingSphere(sphere, {
+      offset,
+      duration,
+      complete: () => resolve(),
+      cancel: () => resolve(),
+    });
+  });
+}
+
+async function flyToCampusPoi(
+  C: CesiumNS,
+  viewer: Viewer,
+  campus: Campus,
+  compact: boolean,
+  animate: boolean,
+): Promise<void> {
+  const loc = await resolveCampusLatLng(campus);
+  const approach = campusApproach(compact, Boolean(campus.flagship));
+  const controller = viewer.scene.screenSpaceCameraController;
+  const prevCollision = controller.enableCollisionDetection;
+  controller.enableCollisionDetection = false;
+
+  const firstHeight = await samplePoiHeight(C, viewer, loc.lat, loc.lng);
+  const firstTarget = poiCartesian(C, loc.lat, loc.lng, firstHeight, approach.lookUpM);
+  await flyToSphere(
+    C,
+    viewer,
+    firstTarget,
+    approach.headingDeg,
+    approach.pitchDeg,
+    approach.rangeM,
+    animate ? approach.duration : 0,
+  );
+
+  // Tiles near the POI often finish after the first sample — refine so we
+  // don't sit looking at the ellipsoid while buildings pop in beside us.
+  await sleep(animate ? 450 : 0);
+  const settledHeight = await samplePoiHeight(C, viewer, loc.lat, loc.lng);
+  if (Math.abs(settledHeight - firstHeight) > 10) {
+    const refined = poiCartesian(C, loc.lat, loc.lng, settledHeight, approach.lookUpM);
+    await flyToSphere(
+      C,
+      viewer,
+      refined,
+      approach.headingDeg,
+      approach.pitchDeg,
+      approach.rangeM,
+      animate ? 0.65 : 0,
     );
-    entity.model.colorBlendAmount = new C.ConstantProperty(selected ? 0.28 : 0);
+  }
+
+  controller.enableCollisionDetection = prevCollision;
+}
+
+function stylePin(C: CesiumNS, entity: Entity, selected: boolean, hovered: boolean, number: number, flagship: boolean) {
+  if (entity.billboard) {
+    entity.billboard.image = new C.ConstantProperty(drawCampusPin({ number, selected, hovered, flagship }));
+    entity.billboard.scale = new C.ConstantProperty(selected ? 1.08 : hovered ? 1.04 : 1);
   }
   if (entity.label) {
-    entity.label.show = new C.ConstantProperty(hot);
+    entity.label.show = new C.ConstantProperty(selected || hovered);
   }
 }
 
@@ -189,7 +283,6 @@ export default function FloridaCesiumView({
       viewer.clock.shouldAnimate = true;
       viewerRef.current = viewer;
       lastFlyId.current = undefined;
-      setEngineReady(true);
 
       const gold = C.Color.fromCssColorString(FLAME_GOLD);
       for (const campus of floridaMapCampuses()) {
@@ -197,31 +290,32 @@ export default function FloridaCesiumView({
         const { lat, lng } = campusLatLng(campus);
         const position = C.Cartesian3.fromDegrees(lng, lat);
         const number = row?.number ?? 0;
-        const plazaM = plazaRadius(campus) * SKYLINE_UNIT_METERS;
         viewer.entities.add({
           id: pinId(campus.id),
           position,
-          model: {
-            uri: campusSkylineUrl(campus),
+          billboard: {
+            image: drawCampusPin({
+              number,
+              selected: false,
+              hovered: false,
+              flagship: Boolean(campus.flagship),
+            }),
+            verticalOrigin: C.VerticalOrigin.BOTTOM,
+            horizontalOrigin: C.HorizontalOrigin.CENTER,
             heightReference: C.HeightReference.CLAMP_TO_3D_TILE,
-            minimumPixelSize: 56,
-            maximumScale: 1600,
-            scale: 1,
-            color: C.Color.WHITE,
-            colorBlendMode: C.ColorBlendMode.HIGHLIGHT,
-            colorBlendAmount: 0,
-            silhouetteColor: gold,
-            silhouetteSize: 0,
+            disableDepthTestDistance: Number.POSITIVE_INFINITY,
+            // Small when landed (tiles stay visible); readable on the overview.
+            scaleByDistance: new C.NearFarScalar(220, 0.4, 220_000, 0.78),
           },
           label: {
             text: `${number} · ${campus.city}`,
-            font: "600 13px Roboto, system-ui, sans-serif",
+            font: "600 12px Roboto, system-ui, sans-serif",
             fillColor: C.Color.WHITE,
             outlineColor: C.Color.fromCssColorString("#0b1c33"),
             outlineWidth: 4,
             style: C.LabelStyle.FILL_AND_OUTLINE,
             verticalOrigin: C.VerticalOrigin.BOTTOM,
-            pixelOffset: new C.Cartesian2(0, -78),
+            pixelOffset: new C.Cartesian2(0, -42),
             show: false,
             heightReference: C.HeightReference.RELATIVE_TO_3D_TILE,
             disableDepthTestDistance: Number.POSITIVE_INFINITY,
@@ -234,19 +328,31 @@ export default function FloridaCesiumView({
           ellipse: {
             semiMajorAxis: new C.CallbackProperty(() => {
               const t = (performance.now() / 1000) * 1.7;
-              return plazaM * (1.15 + 0.7 * (0.5 + 0.5 * Math.sin(t * Math.PI * 2)));
+              return 8 + 16 * (0.5 + 0.5 * Math.sin(t * Math.PI * 2));
             }, false),
             semiMinorAxis: new C.CallbackProperty(() => {
               const t = (performance.now() / 1000) * 1.7;
-              return plazaM * (1.15 + 0.7 * (0.5 + 0.5 * Math.sin(t * Math.PI * 2)));
+              return 8 + 16 * (0.5 + 0.5 * Math.sin(t * Math.PI * 2));
             }, false),
-            material: gold.withAlpha(0.32),
+            material: gold.withAlpha(0.28),
             outline: true,
-            outlineColor: gold.withAlpha(0.8),
+            outlineColor: gold.withAlpha(0.75),
             heightReference: C.HeightReference.CLAMP_TO_3D_TILE,
           },
         });
       }
+
+      void Promise.all(
+        floridaMapCampuses().map(async (campus) => {
+          const loc = await resolveCampusLatLng(campus);
+          if (cancelled || !viewer || viewer.isDestroyed()) return;
+          const position = C.Cartesian3.fromDegrees(loc.lng, loc.lat);
+          const pin = viewer.entities.getById(pinId(campus.id));
+          const pulse = viewer.entities.getById(pulseId(campus.id));
+          if (pin) pin.position = new C.ConstantPositionProperty(position);
+          if (pulse) pulse.position = new C.ConstantPositionProperty(position);
+        }),
+      );
 
       handler = new C.ScreenSpaceEventHandler(viewer.scene.canvas);
       handler.setInputAction((click: { position: import("cesium").Cartesian2 }) => {
@@ -295,6 +401,7 @@ export default function FloridaCesiumView({
           }
         });
         setPhase("ready");
+        setEngineReady(true);
         window.clearTimeout(bootTimer);
         bootTimer = window.setTimeout(() => {
           if (!sawContent) {
@@ -327,9 +434,10 @@ export default function FloridaCesiumView({
     for (const campus of floridaMapCampuses()) {
       const selected = sameMapCampus(selectedId, campus.id);
       const hovered = sameMapCampus(hoveredId, campus.id);
+      const row = rosterRowFor(campus.id);
       const pin = viewer.entities.getById(pinId(campus.id));
       const pulse = viewer.entities.getById(pulseId(campus.id));
-      if (pin) styleSkyline(C, pin, selected, hovered);
+      if (pin) stylePin(C, pin, selected, hovered, row?.number ?? 0, Boolean(campus.flagship));
       if (pulse) pulse.show = selected;
     }
   }, [selectedId, hoveredId, engineReady]);
@@ -345,8 +453,7 @@ export default function FloridaCesiumView({
 
     const flyCampus = (campus: Campus, animate: boolean) => {
       lastFlyId.current = campus.id;
-      const { lat, lng } = campusLatLng(campus);
-      return applySeat(C, viewer, campusApproachSeat(lat, lng, compact, Boolean(campus.flagship)), animate);
+      return flyToCampusPoi(C, viewer, campus, compact, animate);
     };
 
     const flyOverview = (animate: boolean) => {

@@ -21,6 +21,60 @@ export function campusLatLng(campus: Campus): { lat: number; lng: number } {
   return p ? { lat: p[0], lng: p[1] } : { lat: campus.lat, lng: campus.lng };
 }
 
+const resolvedCache = new Map<string, { lat: number; lng: number }>();
+
+function cacheKey(campusId: string): string {
+  return `kcg-geo-${campusId}`;
+}
+
+function readStoredLatLng(campusId: string): { lat: number; lng: number } | null {
+  try {
+    const cached = localStorage.getItem(cacheKey(campusId));
+    if (!cached) return null;
+    const parsed = JSON.parse(cached) as { lat?: number; lng?: number };
+    if (typeof parsed.lat === "number" && typeof parsed.lng === "number") return parsed as { lat: number; lng: number };
+  } catch {
+    /* ignore */
+  }
+  return null;
+}
+
+function writeStoredLatLng(campusId: string, loc: { lat: number; lng: number }): void {
+  try {
+    localStorage.setItem(cacheKey(campusId), JSON.stringify(loc));
+  } catch {
+    /* storage full / disabled */
+  }
+}
+
+/**
+ * Best available campus lat/lng for camera / markers: precise pin → cached
+ * geocode → live geocode of the street address → catalog coordinates.
+ */
+export async function resolveCampusLatLng(campus: Campus): Promise<{ lat: number; lng: number }> {
+  const precise = PRECISE[campus.id];
+  if (precise) return { lat: precise[0], lng: precise[1] };
+
+  const memo = resolvedCache.get(campus.id);
+  if (memo) return memo;
+
+  const stored = typeof localStorage !== "undefined" ? readStoredLatLng(campus.id) : null;
+  if (stored) {
+    resolvedCache.set(campus.id, stored);
+    return stored;
+  }
+
+  const fallback = { lat: campus.lat, lng: campus.lng };
+  if (!GOOGLE_KEY) return fallback;
+
+  const query = ADDRESSES[campus.id] ?? campus.address ?? `${campus.name}, ${campus.city}`;
+  const loc = await geocode(query, GOOGLE_KEY);
+  if (!loc) return fallback;
+  resolvedCache.set(campus.id, loc);
+  if (typeof localStorage !== "undefined") writeStoredLatLng(campus.id, loc);
+  return loc;
+}
+
 // Verified precise coordinates (campus id → [lat, lng]). These render exactly
 // even without the Geocoding API enabled.
 const PRECISE: Record<string, [number, number]> = {
@@ -31,6 +85,20 @@ const PRECISE: Record<string, [number, number]> = {
   sarasota: [27.3845, -82.4459], // 6151 Lake Osprey Dr, Lakewood Ranch
   daytona: [29.2045, -81.0745], // 1800 Business Park Blvd
   lakeland: [28.0765, -81.9806], // 2400 Interstate Dr
+  tampa: [28.02456, -82.52941], // 5002 W Waters Ave
+  miami: [25.79355, -80.38423], // 2101 NW 117th Ave
+  clearwater: [27.91921, -82.73006], // 16120 US Hwy 19 N
+  "west-palm-beach": [26.7058, -80.1475], // 2085 Vista Pkwy
+  "pembroke-pines": [26.0029, -80.3515], // 1640 SW 145th Ave
+  "new-port-richey": [28.2482, -82.7178], // 6300 US Hwy 19 N
+  "fort-myers": [26.6405, -81.8128], // 9100 Forum Corporate Pkwy
+  "graduate-school": [26.1862, -80.1662], // 1600 W Commercial Blvd
+  "online-global": [26.1865, -80.1698], // 1900 W Commercial Blvd
+  tallahassee: [30.4809, -84.238], // 1700 Halstead Blvd
+  melbourne: [28.0669, -80.6089], // 900 S Babcock St
+  naples: [26.1196, -81.7735], // 3909 Tamiami Trail E
+  "port-st-lucie": [27.2738, -80.3512], // 9400 SW Discovery Way
+  ocala: [29.2015, -82.1118], // 1601 NE 25th Ave
 };
 
 // Real street addresses for the remaining campuses — geocoded on demand (and
@@ -89,15 +157,10 @@ export function useResolvedLatLng(campus: Campus): { lat: number; lng: number } 
     }
     setLoc({ lat: campus.lat, lng: campus.lng });
 
-    const cacheKey = `kcg-geo-${campus.id}`;
-    const cached = localStorage.getItem(cacheKey);
+    const cached = readStoredLatLng(campus.id);
     if (cached) {
-      try {
-        setLoc(JSON.parse(cached));
-        return;
-      } catch {
-        /* refetch */
-      }
+      setLoc(cached);
+      return;
     }
     if (!GOOGLE_KEY) return;
 
@@ -105,12 +168,9 @@ export function useResolvedLatLng(campus: Campus): { lat: number; lng: number } 
     const query = ADDRESSES[campus.id] ?? campus.address ?? `${campus.name}, ${campus.city}`;
     geocode(query, GOOGLE_KEY).then((r) => {
       if (r && alive) {
+        resolvedCache.set(campus.id, r);
+        writeStoredLatLng(campus.id, r);
         setLoc(r);
-        try {
-          localStorage.setItem(cacheKey, JSON.stringify(r));
-        } catch {
-          /* storage full / disabled — fine */
-        }
       }
     });
     return () => {
