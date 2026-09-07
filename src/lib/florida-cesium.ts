@@ -1,7 +1,5 @@
-// Camera framing, intro path, and pin art for the Cesium / Google 3D Florida view.
+// Camera framing for the Cesium / Google 3D Florida view.
 // Geographic constants only — Cesium stays in the lazy page chunk.
-
-import { FLAME_GOLD } from "./campus-data";
 
 /** Peninsula rectangle used to keep the default camera on Florida campuses. */
 export const FLORIDA_WEST = -87.65;
@@ -32,7 +30,7 @@ export function campusApproachSeat(
   compact: boolean,
   flagship: boolean,
 ): CameraSeat {
-  const height = flagship ? (compact ? 1500 : 1150) : compact ? 1200 : 880;
+  const height = flagship ? (compact ? 1700 : 1300) : compact ? 1400 : 1050;
   const offset = compact ? 0.015 : 0.011;
   return {
     lng,
@@ -54,45 +52,3 @@ export const FLORIDA_INTRO_SEATS: CameraSeat[] = [
   { lng: -83.55, lat: 29.55, height: 78_000, heading: 22, pitch: -42, duration: 2.05 },
 ];
 
-const NAVY = "#0b1c33";
-
-export function drawCampusPin(opts: {
-  number: number;
-  selected: boolean;
-  hovered: boolean;
-  flagship?: boolean;
-}): HTMLCanvasElement {
-  const canvas = document.createElement("canvas");
-  canvas.width = 80;
-  canvas.height = 100;
-  const ctx = canvas.getContext("2d");
-  if (!ctx) return canvas;
-
-  const hot = opts.selected || opts.hovered;
-  const r = opts.selected ? 26 : opts.hovered ? 24 : opts.flagship ? 23 : 21;
-  const cx = 40;
-  const cy = 10 + r;
-
-  ctx.beginPath();
-  ctx.moveTo(cx - r * 0.58, cy + r * 0.42);
-  ctx.quadraticCurveTo(cx - 4, cy + r + 8, cx, 96);
-  ctx.quadraticCurveTo(cx + 4, cy + r + 8, cx + r * 0.58, cy + r * 0.42);
-  ctx.closePath();
-  ctx.fillStyle = FLAME_GOLD;
-  ctx.fill();
-
-  ctx.beginPath();
-  ctx.arc(cx, cy, r, 0, Math.PI * 2);
-  ctx.fillStyle = hot ? FLAME_GOLD : NAVY;
-  ctx.fill();
-  ctx.lineWidth = opts.selected ? 4 : 3;
-  ctx.strokeStyle = FLAME_GOLD;
-  ctx.stroke();
-
-  ctx.fillStyle = hot ? NAVY : FLAME_GOLD;
-  ctx.font = `700 ${opts.number > 9 ? 22 : 26}px "Barlow Condensed", system-ui, sans-serif`;
-  ctx.textAlign = "center";
-  ctx.textBaseline = "middle";
-  ctx.fillText(String(opts.number), cx, cy + 1);
-  return canvas;
-}

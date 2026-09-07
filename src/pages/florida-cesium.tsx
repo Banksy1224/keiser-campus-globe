@@ -4,10 +4,10 @@ import "cesium/Build/Cesium/Widgets/widgets.css";
 import "./florida-cesium.css";
 import { FLAME_GOLD, campusById, type Campus } from "../lib/campus-data";
 import { campusLatLng, GOOGLE_KEY } from "../lib/campus-location";
+import { campusSkylineUrl, plazaRadius, SKYLINE_UNIT_METERS } from "../lib/campus-skyline";
 import {
   FLORIDA_INTRO_SEATS,
   campusApproachSeat,
-  drawCampusPin,
   floridaOverviewSeat,
   type CameraSeat,
 } from "../lib/florida-cesium";
@@ -72,22 +72,25 @@ function applySeat(C: CesiumNS, viewer: Viewer, seat: CameraSeat, animate: boole
   });
 }
 
-function stylePin(
-  C: CesiumNS,
-  entity: Entity,
-  selected: boolean,
-  hovered: boolean,
-  number: number,
-  flagship: boolean,
-) {
-  if (entity.billboard) {
-    entity.billboard.image = new C.ConstantProperty(
-      drawCampusPin({ number, selected, hovered, flagship }),
+function pulseScale(selected: boolean): number {
+  if (!selected || prefersReducedMotion()) return 1;
+  const t = performance.now() / 1000;
+  return 1 + 0.12 * (0.5 + 0.5 * Math.sin(t * 3.6));
+}
+
+function styleSkyline(C: CesiumNS, entity: Entity, selected: boolean, hovered: boolean) {
+  const hot = selected || hovered;
+  if (entity.model) {
+    entity.model.scale = new C.CallbackProperty(() => pulseScale(selected), false);
+    entity.model.silhouetteSize = new C.ConstantProperty(hot ? 2.4 : 0);
+    entity.model.silhouetteColor = new C.ConstantProperty(C.Color.fromCssColorString(FLAME_GOLD));
+    entity.model.color = new C.ConstantProperty(
+      selected ? C.Color.fromCssColorString(FLAME_GOLD) : C.Color.WHITE,
     );
-    entity.billboard.scale = new C.ConstantProperty(selected ? 1.12 : hovered ? 1.05 : 1);
+    entity.model.colorBlendAmount = new C.ConstantProperty(selected ? 0.28 : 0);
   }
   if (entity.label) {
-    entity.label.show = new C.ConstantProperty(selected || hovered);
+    entity.label.show = new C.ConstantProperty(hot);
   }
 }
 
@@ -194,21 +197,21 @@ export default function FloridaCesiumView({
         const { lat, lng } = campusLatLng(campus);
         const position = C.Cartesian3.fromDegrees(lng, lat);
         const number = row?.number ?? 0;
+        const plazaM = plazaRadius(campus) * SKYLINE_UNIT_METERS;
         viewer.entities.add({
           id: pinId(campus.id),
           position,
-          billboard: {
-            image: drawCampusPin({
-              number,
-              selected: false,
-              hovered: false,
-              flagship: Boolean(campus.flagship),
-            }),
-            verticalOrigin: C.VerticalOrigin.BOTTOM,
-            horizontalOrigin: C.HorizontalOrigin.CENTER,
+          model: {
+            uri: campusSkylineUrl(campus),
             heightReference: C.HeightReference.CLAMP_TO_3D_TILE,
-            disableDepthTestDistance: Number.POSITIVE_INFINITY,
-            scaleByDistance: new C.NearFarScalar(400, 1.1, 900_000, 0.32),
+            minimumPixelSize: 56,
+            maximumScale: 1600,
+            scale: 1,
+            color: C.Color.WHITE,
+            colorBlendMode: C.ColorBlendMode.HIGHLIGHT,
+            colorBlendAmount: 0,
+            silhouetteColor: gold,
+            silhouetteSize: 0,
           },
           label: {
             text: `${number} · ${campus.city}`,
@@ -218,7 +221,7 @@ export default function FloridaCesiumView({
             outlineWidth: 4,
             style: C.LabelStyle.FILL_AND_OUTLINE,
             verticalOrigin: C.VerticalOrigin.BOTTOM,
-            pixelOffset: new C.Cartesian2(0, -56),
+            pixelOffset: new C.Cartesian2(0, -78),
             show: false,
             heightReference: C.HeightReference.RELATIVE_TO_3D_TILE,
             disableDepthTestDistance: Number.POSITIVE_INFINITY,
@@ -231,15 +234,15 @@ export default function FloridaCesiumView({
           ellipse: {
             semiMajorAxis: new C.CallbackProperty(() => {
               const t = (performance.now() / 1000) * 1.7;
-              return 28 + 70 * (0.5 + 0.5 * Math.sin(t * Math.PI * 2));
+              return plazaM * (1.15 + 0.7 * (0.5 + 0.5 * Math.sin(t * Math.PI * 2)));
             }, false),
             semiMinorAxis: new C.CallbackProperty(() => {
               const t = (performance.now() / 1000) * 1.7;
-              return 28 + 70 * (0.5 + 0.5 * Math.sin(t * Math.PI * 2));
+              return plazaM * (1.15 + 0.7 * (0.5 + 0.5 * Math.sin(t * Math.PI * 2)));
             }, false),
-            material: gold.withAlpha(0.28),
+            material: gold.withAlpha(0.32),
             outline: true,
-            outlineColor: gold.withAlpha(0.75),
+            outlineColor: gold.withAlpha(0.8),
             heightReference: C.HeightReference.CLAMP_TO_3D_TILE,
           },
         });
@@ -324,10 +327,9 @@ export default function FloridaCesiumView({
     for (const campus of floridaMapCampuses()) {
       const selected = sameMapCampus(selectedId, campus.id);
       const hovered = sameMapCampus(hoveredId, campus.id);
-      const row = rosterRowFor(campus.id);
       const pin = viewer.entities.getById(pinId(campus.id));
       const pulse = viewer.entities.getById(pulseId(campus.id));
-      if (pin) stylePin(C, pin, selected, hovered, row?.number ?? 0, Boolean(campus.flagship));
+      if (pin) styleSkyline(C, pin, selected, hovered);
       if (pulse) pulse.show = selected;
     }
   }, [selectedId, hoveredId, engineReady]);
