@@ -4,6 +4,7 @@ import { Html, OrbitControls } from "@react-three/drei";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 import * as THREE from "three";
 import { FLAME_GOLD, type Campus } from "../lib/campus-data";
+import { SKYLINE_BUILDING_A, SKYLINE_BUILDING_B, SKYLINE_PLAZA, campusLayout } from "../lib/campus-skyline";
 import { WATER_Y, latLngToMap } from "../lib/florida-geo";
 import { buildFloridaTerrain, type FloridaTerrain } from "../lib/florida-terrain";
 import {
@@ -238,21 +239,6 @@ function Vegetation({ terrain }: { terrain: FloridaTerrain }) {
   );
 }
 
-function campusLayout(campus: Campus) {
-  const flagship = Boolean(campus.flagship);
-  const count = campus.skyline.length;
-  const ring = flagship ? 0.2 : 0.15;
-  return campus.skyline.map((h, i) => {
-    const angle = (i / count) * Math.PI * 2 - Math.PI / 2;
-    return {
-      x: Math.cos(angle) * ring,
-      z: Math.sin(angle) * ring,
-      h: (flagship ? 0.32 : 0.2) + h * (flagship ? 0.72 : 0.5),
-      w: flagship ? 0.11 : 0.085,
-    };
-  });
-}
-
 function CampusCluster({
   site,
   groundY,
@@ -287,13 +273,13 @@ function CampusCluster({
     <group ref={group} position={[site.x, groundY, site.z]} userData={{ campusId: site.id }}>
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.012, 0]} receiveShadow>
         <circleGeometry args={[site.campus.flagship ? 0.28 : 0.2, 22]} />
-        <meshStandardMaterial color="#1a2744" roughness={0.85} />
+        <meshStandardMaterial color={SKYLINE_PLAZA} roughness={0.85} />
       </mesh>
       {buildings.map((b, i) => (
         <mesh key={i} position={[b.x, b.h / 2, b.z]} castShadow>
           <boxGeometry args={[b.w, b.h, b.w * 0.92]} />
           <meshStandardMaterial
-            color={i % 3 === 0 ? "#1d2e57" : "#2a4686"}
+            color={i % 3 === 0 ? SKYLINE_BUILDING_A : SKYLINE_BUILDING_B}
             roughness={0.55}
             metalness={0.18}
             emissive={selected ? FLAME_GOLD : "#000000"}
