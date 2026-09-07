@@ -1,3 +1,9 @@
+/* Keep Cesium's internal z-index (error panel is 99999) under Keiser chrome. */
+.florida-cesium-root {
+  isolation: isolate;
+  z-index: 0;
+}
+
 /* Cesium viewer fills the Florida pane; chrome widgets stay hidden. */
 .florida-cesium,
 .florida-cesium .cesium-viewer,
@@ -8,6 +14,10 @@
   inset: 0;
   width: 100%;
   height: 100%;
+}
+
+.florida-cesium .cesium-widget-errorPanel {
+  display: none !important;
 }
 
 .florida-cesium .cesium-widget,

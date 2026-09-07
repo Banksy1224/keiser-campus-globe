@@ -1,26 +1,5 @@
 import { useEffect, useRef, useState } from "react";
 import "../lib/cesium-base";
-import {
-  CallbackProperty,
-  Cartesian2,
-  Cartesian3,
-  Color,
-  ConstantProperty,
-  createGooglePhotorealistic3DTileset,
-  defined,
-  Entity,
-  GoogleMaps,
-  HeightReference,
-  HorizontalOrigin,
-  LabelStyle,
-  Math as CesiumMath,
-  NearFarScalar,
-  ScreenSpaceEventHandler,
-  ScreenSpaceEventType,
-  VerticalOrigin,
-  Viewer,
-  type Cartesian3 as Cartesian3Type,
-} from "cesium";
 import "cesium/Build/Cesium/Widgets/widgets.css";
 import "./florida-cesium.css";
 import { FLAME_GOLD, campusById, type Campus } from "../lib/campus-data";
@@ -40,40 +19,12 @@ import {
 } from "../lib/florida-map";
 import { prefersReducedMotion } from "../lib/runtime";
 
-const GOLD = Color.fromCssColorString(FLAME_GOLD);
+type CesiumNS = typeof import("cesium");
+type Viewer = import("cesium").Viewer;
+type Entity = import("cesium").Entity;
+
 const PIN_PREFIX = "campus:";
 const PULSE_PREFIX = "pulse:";
-
-function seatDestination(seat: CameraSeat): Cartesian3Type {
-  return Cartesian3.fromDegrees(seat.lng, seat.lat, seat.height);
-}
-
-function seatOrientation(seat: CameraSeat) {
-  return {
-    heading: CesiumMath.toRadians(seat.heading),
-    pitch: CesiumMath.toRadians(seat.pitch),
-    roll: 0,
-  };
-}
-
-function applySeat(viewer: Viewer, seat: CameraSeat, animate: boolean): Promise<void> {
-  if (!animate || seat.duration <= 0) {
-    viewer.camera.setView({
-      destination: seatDestination(seat),
-      orientation: seatOrientation(seat),
-    });
-    return Promise.resolve();
-  }
-  return new Promise((resolve) => {
-    viewer.camera.flyTo({
-      destination: seatDestination(seat),
-      orientation: seatOrientation(seat),
-      duration: seat.duration,
-      complete: () => resolve(),
-      cancel: () => resolve(),
-    });
-  });
-}
 
 function pinId(campusId: string): string {
   return `${PIN_PREFIX}${campusId}`;
@@ -90,13 +41,53 @@ function campusIdFromEntity(entity: Entity | undefined): string | null {
   return null;
 }
 
-function stylePin(entity: Entity, selected: boolean, hovered: boolean, number: number, flagship: boolean) {
+function seatDestination(C: CesiumNS, seat: CameraSeat) {
+  return C.Cartesian3.fromDegrees(seat.lng, seat.lat, seat.height);
+}
+
+function seatOrientation(C: CesiumNS, seat: CameraSeat) {
+  return {
+    heading: C.Math.toRadians(seat.heading),
+    pitch: C.Math.toRadians(seat.pitch),
+    roll: 0,
+  };
+}
+
+function applySeat(C: CesiumNS, viewer: Viewer, seat: CameraSeat, animate: boolean): Promise<void> {
+  if (!animate || seat.duration <= 0) {
+    viewer.camera.setView({
+      destination: seatDestination(C, seat),
+      orientation: seatOrientation(C, seat),
+    });
+    return Promise.resolve();
+  }
+  return new Promise((resolve) => {
+    viewer.camera.flyTo({
+      destination: seatDestination(C, seat),
+      orientation: seatOrientation(C, seat),
+      duration: seat.duration,
+      complete: () => resolve(),
+      cancel: () => resolve(),
+    });
+  });
+}
+
+function stylePin(
+  C: CesiumNS,
+  entity: Entity,
+  selected: boolean,
+  hovered: boolean,
+  number: number,
+  flagship: boolean,
+) {
   if (entity.billboard) {
-    entity.billboard.image = new ConstantProperty(drawCampusPin({ number, selected, hovered, flagship }));
-    entity.billboard.scale = new ConstantProperty(selected ? 1.12 : hovered ? 1.05 : 1);
+    entity.billboard.image = new C.ConstantProperty(
+      drawCampusPin({ number, selected, hovered, flagship }),
+    );
+    entity.billboard.scale = new C.ConstantProperty(selected ? 1.12 : hovered ? 1.05 : 1);
   }
   if (entity.label) {
-    entity.label.show = new ConstantProperty(selected || hovered);
+    entity.label.show = new C.ConstantProperty(selected || hovered);
   }
 }
 
@@ -109,17 +100,19 @@ export default function FloridaCesiumView({
   onSelect,
   lowPower = false,
   compact = false,
+  onTilesFailed,
 }: FloridaViewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const viewerRef = useRef<Viewer | null>(null);
-  const handlerRef = useRef<ScreenSpaceEventHandler | null>(null);
+  const cesiumRef = useRef<CesiumNS | null>(null);
   const introGen = useRef(0);
   const lastFlyId = useRef<string | null | undefined>(undefined);
-  const propsRef = useRef({ onHover, onSelect, onIntroFinished, compact });
-  propsRef.current = { onHover, onSelect, onIntroFinished, compact };
+  const propsRef = useRef({ onHover, onSelect, onIntroFinished, compact, onTilesFailed });
+  propsRef.current = { onHover, onSelect, onIntroFinished, compact, onTilesFailed };
 
   const [phase, setPhase] = useState<"loading" | "ready" | "error">("loading");
   const [error, setError] = useState<string | null>(null);
+  const [engineReady, setEngineReady] = useState(false);
 
   useEffect(() => {
     const host = containerRef.current;
@@ -127,114 +120,155 @@ export default function FloridaCesiumView({
     if (!host || !apiKey) return;
 
     let cancelled = false;
-    const viewer = new Viewer(host, {
-      animation: false,
-      baseLayerPicker: false,
-      fullscreenButton: false,
-      vrButton: false,
-      geocoder: false,
-      homeButton: false,
-      infoBox: false,
-      sceneModePicker: false,
-      selectionIndicator: false,
-      timeline: false,
-      navigationHelpButton: false,
-      navigationInstructionsInitiallyVisible: false,
-      scene3DOnly: true,
-      globe: false,
-      baseLayer: false,
-      skyBox: false,
-      requestRenderMode: false,
-      shouldAnimate: true,
-      msaaSamples: lowPower ? 1 : 4,
-      useBrowserRecommendedResolution: true,
-      targetFrameRate: lowPower ? 30 : undefined,
-    });
-    viewer.scene.backgroundColor = Color.fromCssColorString("#0b1c33");
-    viewer.scene.fog.enabled = false;
-    const controller = viewer.scene.screenSpaceCameraController;
-    controller.minimumZoomDistance = 80;
-    controller.maximumZoomDistance = compact ? 1.5e6 : 9.5e5;
-    controller.enableCollisionDetection = true;
-    viewer.clock.shouldAnimate = true;
-    viewerRef.current = viewer;
-    lastFlyId.current = undefined;
+    let bootTimer = 0;
+    let viewer: Viewer | null = null;
+    let handler: import("cesium").ScreenSpaceEventHandler | null = null;
 
-    const sites = floridaMapCampuses();
-    for (const campus of sites) {
-      const row = rosterRowFor(campus.id);
-      const { lat, lng } = campusLatLng(campus);
-      const position = Cartesian3.fromDegrees(lng, lat);
-      const number = row?.number ?? 0;
-      viewer.entities.add({
-        id: pinId(campus.id),
-        position,
-        billboard: {
-          image: drawCampusPin({ number, selected: false, hovered: false, flagship: Boolean(campus.flagship) }),
-          verticalOrigin: VerticalOrigin.BOTTOM,
-          horizontalOrigin: HorizontalOrigin.CENTER,
-          heightReference: HeightReference.CLAMP_TO_3D_TILE,
-          disableDepthTestDistance: Number.POSITIVE_INFINITY,
-          scaleByDistance: new NearFarScalar(400, 1.1, 900_000, 0.32),
-        },
-        label: {
-          text: `${number} · ${campus.city}`,
-          font: "600 13px Roboto, system-ui, sans-serif",
-          fillColor: Color.WHITE,
-          outlineColor: Color.fromCssColorString("#0b1c33"),
-          outlineWidth: 4,
-          style: LabelStyle.FILL_AND_OUTLINE,
-          verticalOrigin: VerticalOrigin.BOTTOM,
-          pixelOffset: new Cartesian2(0, -56),
-          show: false,
-          heightReference: HeightReference.RELATIVE_TO_3D_TILE,
-          disableDepthTestDistance: Number.POSITIVE_INFINITY,
-        },
-      });
-      viewer.entities.add({
-        id: pulseId(campus.id),
-        position,
-        show: false,
-        ellipse: {
-          semiMajorAxis: new CallbackProperty(() => {
-            const t = (performance.now() / 1000) * 1.7;
-            return 28 + 70 * (0.5 + 0.5 * Math.sin(t * Math.PI * 2));
-          }, false),
-          semiMinorAxis: new CallbackProperty(() => {
-            const t = (performance.now() / 1000) * 1.7;
-            return 28 + 70 * (0.5 + 0.5 * Math.sin(t * Math.PI * 2));
-          }, false),
-          material: GOLD.withAlpha(0.28),
-          outline: true,
-          outlineColor: GOLD.withAlpha(0.75),
-          heightReference: HeightReference.CLAMP_TO_3D_TILE,
-        },
-      });
-    }
+    const fail = (message: string) => {
+      if (cancelled) return;
+      window.clearTimeout(bootTimer);
+      setError(message);
+      setPhase("error");
+      propsRef.current.onTilesFailed?.(message);
+    };
 
-    const handler = new ScreenSpaceEventHandler(viewer.scene.canvas);
-    handler.setInputAction((click: { position: Cartesian2 }) => {
-      const picked = viewer.scene.pick(click.position);
-      const id = defined(picked) ? campusIdFromEntity(picked.id as Entity | undefined) : null;
-      const campus = id ? campusById(id) : null;
-      if (campus) propsRef.current.onSelect(campus);
-    }, ScreenSpaceEventType.LEFT_CLICK);
-    handler.setInputAction((move: { endPosition: Cartesian2 }) => {
-      const picked = viewer.scene.pick(move.endPosition);
-      const id = defined(picked) ? campusIdFromEntity(picked.id as Entity | undefined) : null;
-      propsRef.current.onHover(id);
-      viewer.scene.canvas.style.cursor = id ? "pointer" : "default";
-    }, ScreenSpaceEventType.MOUSE_MOVE);
-    handlerRef.current = handler;
+    bootTimer = window.setTimeout(() => {
+      fail("Timed out loading Google Photorealistic 3D Tiles. Check the Map Tiles API key.");
+    }, 20000);
 
-    const canvas = viewer.scene.canvas;
-    canvas.setAttribute("aria-label", "Photorealistic 3D map of Keiser University Florida campuses");
-    canvas.style.touchAction = "none";
-
-    GoogleMaps.defaultApiKey = apiKey;
     void (async () => {
+      let C: CesiumNS;
       try {
-        const tileset = await createGooglePhotorealistic3DTileset(
+        C = await import("cesium");
+      } catch (err) {
+        fail(err instanceof Error ? err.message : "CesiumJS failed to load.");
+        return;
+      }
+      if (cancelled) return;
+      cesiumRef.current = C;
+
+      try {
+        viewer = new C.Viewer(host, {
+          animation: false,
+          baseLayerPicker: false,
+          fullscreenButton: false,
+          vrButton: false,
+          geocoder: false,
+          homeButton: false,
+          infoBox: false,
+          sceneModePicker: false,
+          selectionIndicator: false,
+          timeline: false,
+          navigationHelpButton: false,
+          navigationInstructionsInitiallyVisible: false,
+          scene3DOnly: true,
+          globe: false,
+          baseLayer: false,
+          skyBox: false,
+          requestRenderMode: false,
+          shouldAnimate: true,
+          showRenderLoopErrors: false,
+          msaaSamples: lowPower ? 1 : 4,
+          useBrowserRecommendedResolution: true,
+          targetFrameRate: lowPower ? 30 : undefined,
+        });
+      } catch (err) {
+        fail(err instanceof Error ? err.message : "Cesium viewer failed to start.");
+        return;
+      }
+
+      viewer.scene.backgroundColor = C.Color.fromCssColorString("#0b1c33");
+      viewer.scene.fog.enabled = false;
+      const controller = viewer.scene.screenSpaceCameraController;
+      controller.minimumZoomDistance = 80;
+      controller.maximumZoomDistance = compact ? 1.5e6 : 9.5e5;
+      controller.enableCollisionDetection = true;
+      viewer.clock.shouldAnimate = true;
+      viewerRef.current = viewer;
+      lastFlyId.current = undefined;
+      setEngineReady(true);
+
+      const gold = C.Color.fromCssColorString(FLAME_GOLD);
+      for (const campus of floridaMapCampuses()) {
+        const row = rosterRowFor(campus.id);
+        const { lat, lng } = campusLatLng(campus);
+        const position = C.Cartesian3.fromDegrees(lng, lat);
+        const number = row?.number ?? 0;
+        viewer.entities.add({
+          id: pinId(campus.id),
+          position,
+          billboard: {
+            image: drawCampusPin({
+              number,
+              selected: false,
+              hovered: false,
+              flagship: Boolean(campus.flagship),
+            }),
+            verticalOrigin: C.VerticalOrigin.BOTTOM,
+            horizontalOrigin: C.HorizontalOrigin.CENTER,
+            heightReference: C.HeightReference.CLAMP_TO_3D_TILE,
+            disableDepthTestDistance: Number.POSITIVE_INFINITY,
+            scaleByDistance: new C.NearFarScalar(400, 1.1, 900_000, 0.32),
+          },
+          label: {
+            text: `${number} · ${campus.city}`,
+            font: "600 13px Roboto, system-ui, sans-serif",
+            fillColor: C.Color.WHITE,
+            outlineColor: C.Color.fromCssColorString("#0b1c33"),
+            outlineWidth: 4,
+            style: C.LabelStyle.FILL_AND_OUTLINE,
+            verticalOrigin: C.VerticalOrigin.BOTTOM,
+            pixelOffset: new C.Cartesian2(0, -56),
+            show: false,
+            heightReference: C.HeightReference.RELATIVE_TO_3D_TILE,
+            disableDepthTestDistance: Number.POSITIVE_INFINITY,
+          },
+        });
+        viewer.entities.add({
+          id: pulseId(campus.id),
+          position,
+          show: false,
+          ellipse: {
+            semiMajorAxis: new C.CallbackProperty(() => {
+              const t = (performance.now() / 1000) * 1.7;
+              return 28 + 70 * (0.5 + 0.5 * Math.sin(t * Math.PI * 2));
+            }, false),
+            semiMinorAxis: new C.CallbackProperty(() => {
+              const t = (performance.now() / 1000) * 1.7;
+              return 28 + 70 * (0.5 + 0.5 * Math.sin(t * Math.PI * 2));
+            }, false),
+            material: gold.withAlpha(0.28),
+            outline: true,
+            outlineColor: gold.withAlpha(0.75),
+            heightReference: C.HeightReference.CLAMP_TO_3D_TILE,
+          },
+        });
+      }
+
+      handler = new C.ScreenSpaceEventHandler(viewer.scene.canvas);
+      handler.setInputAction((click: { position: import("cesium").Cartesian2 }) => {
+        const picked = viewer!.scene.pick(click.position);
+        const id = C.defined(picked) ? campusIdFromEntity(picked.id as Entity | undefined) : null;
+        const campus = id ? campusById(id) : null;
+        if (campus) propsRef.current.onSelect(campus);
+      }, C.ScreenSpaceEventType.LEFT_CLICK);
+      handler.setInputAction((move: { endPosition: import("cesium").Cartesian2 }) => {
+        const picked = viewer!.scene.pick(move.endPosition);
+        const id = C.defined(picked) ? campusIdFromEntity(picked.id as Entity | undefined) : null;
+        propsRef.current.onHover(id);
+        viewer!.scene.canvas.style.cursor = id ? "pointer" : "default";
+      }, C.ScreenSpaceEventType.MOUSE_MOVE);
+
+      const canvas = viewer.scene.canvas;
+      canvas.setAttribute(
+        "aria-label",
+        "Photorealistic 3D map of Keiser University Florida campuses",
+      );
+      canvas.style.touchAction = "none";
+
+      C.GoogleMaps.defaultApiKey = apiKey;
+      try {
+        const tileset = await C.createGooglePhotorealistic3DTileset(
           { key: apiKey, onlyUsingWithGoogleGeocoder: true },
           {
             showCreditsOnScreen: true,
@@ -247,29 +281,45 @@ export default function FloridaCesiumView({
           return;
         }
         viewer.scene.primitives.add(tileset);
+        let sawContent = false;
+        tileset.tileLoad.addEventListener(() => {
+          sawContent = true;
+          window.clearTimeout(bootTimer);
+        });
+        tileset.tileFailed.addEventListener(() => {
+          if (!sawContent) {
+            fail("Map Tiles API rejected the Photorealistic 3D Tiles request.");
+          }
+        });
         setPhase("ready");
+        window.clearTimeout(bootTimer);
+        bootTimer = window.setTimeout(() => {
+          if (!sawContent) {
+            fail("Map Tiles API did not return photoreal tiles for this key.");
+          }
+        }, 12000);
       } catch (err) {
-        if (cancelled) return;
-        const detail = err instanceof Error ? err.message : "Unknown tileset error";
-        setError(detail);
-        setPhase("error");
+        fail(err instanceof Error ? err.message : "Unknown tileset error");
       }
     })();
 
     return () => {
       cancelled = true;
+      window.clearTimeout(bootTimer);
       introGen.current += 1;
-      handler.destroy();
-      handlerRef.current = null;
-      if (!viewer.isDestroyed()) viewer.destroy();
+      handler?.destroy();
+      if (viewer && !viewer.isDestroyed()) viewer.destroy();
       viewerRef.current = null;
+      cesiumRef.current = null;
+      setEngineReady(false);
       host.replaceChildren();
     };
   }, [lowPower, compact]);
 
   useEffect(() => {
     const viewer = viewerRef.current;
-    if (!viewer || viewer.isDestroyed()) return;
+    const C = cesiumRef.current;
+    if (!viewer || viewer.isDestroyed() || !C) return;
 
     for (const campus of floridaMapCampuses()) {
       const selected = sameMapCampus(selectedId, campus.id);
@@ -277,14 +327,15 @@ export default function FloridaCesiumView({
       const row = rosterRowFor(campus.id);
       const pin = viewer.entities.getById(pinId(campus.id));
       const pulse = viewer.entities.getById(pulseId(campus.id));
-      if (pin) stylePin(pin, selected, hovered, row?.number ?? 0, Boolean(campus.flagship));
+      if (pin) stylePin(C, pin, selected, hovered, row?.number ?? 0, Boolean(campus.flagship));
       if (pulse) pulse.show = selected;
     }
-  }, [selectedId, hoveredId]);
+  }, [selectedId, hoveredId, engineReady]);
 
   useEffect(() => {
     const viewer = viewerRef.current;
-    if (!viewer || viewer.isDestroyed()) return;
+    const C = cesiumRef.current;
+    if (!viewer || viewer.isDestroyed() || !C) return;
 
     const gen = ++introGen.current;
     const reduce = prefersReducedMotion();
@@ -293,12 +344,12 @@ export default function FloridaCesiumView({
     const flyCampus = (campus: Campus, animate: boolean) => {
       lastFlyId.current = campus.id;
       const { lat, lng } = campusLatLng(campus);
-      return applySeat(viewer, campusApproachSeat(lat, lng, compact, Boolean(campus.flagship)), animate);
+      return applySeat(C, viewer, campusApproachSeat(lat, lng, compact, Boolean(campus.flagship)), animate);
     };
 
     const flyOverview = (animate: boolean) => {
       lastFlyId.current = null;
-      return applySeat(viewer, floridaOverviewSeat(compact), animate);
+      return applySeat(C, viewer, floridaOverviewSeat(compact), animate);
     };
 
     viewer.camera.cancelFlight();
@@ -308,7 +359,7 @@ export default function FloridaCesiumView({
       void (async () => {
         for (const seat of FLORIDA_INTRO_SEATS) {
           if (introGen.current !== gen) return;
-          await applySeat(viewer, seat, seat.duration > 0);
+          await applySeat(C, viewer, seat, seat.duration > 0);
         }
         if (introGen.current !== gen) return;
         await flyOverview(true);
@@ -326,10 +377,10 @@ export default function FloridaCesiumView({
 
     void flyOverview(!reduce && lastFlyId.current !== undefined);
     if (playIntro) propsRef.current.onIntroFinished();
-  }, [playIntro, selectedId, compact]);
+  }, [playIntro, selectedId, compact, engineReady]);
 
   return (
-    <div className="absolute inset-0 bg-keiser-navy">
+    <div className="florida-cesium-root absolute inset-0 bg-keiser-navy">
       <div ref={containerRef} className="florida-cesium absolute inset-0" />
       {phase === "loading" && (
         <div className="pointer-events-none absolute inset-x-0 top-[7.25rem] z-20 flex justify-center px-3 desk:top-24">

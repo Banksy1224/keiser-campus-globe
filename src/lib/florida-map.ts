@@ -22,6 +22,8 @@ export interface FloridaViewProps {
   onSelect: (campus: Campus) => void;
   lowPower?: boolean;
   compact?: boolean;
+  /** Cesium / Map Tiles failure — parent can fall back to the stylized map. */
+  onTilesFailed?: (message: string) => void;
 }
 
 /** Official catalog id (`flagship` → `flagship-wpb` on main). */

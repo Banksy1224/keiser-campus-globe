@@ -92,7 +92,7 @@ export default defineConfig(({ command }) => {
     envPrefix: ["VITE_", "GOOGLE_MAPS_"],
     plugins: [react(), cesiumStaticAssets(base)],
     optimizeDeps: {
-      exclude: ["cesium"],
+      include: ["cesium"],
     },
     server: {
       proxy: {
@@ -112,7 +112,7 @@ export default defineConfig(({ command }) => {
       },
     },
     build: {
-      chunkSizeWarningLimit: 4000,
+      chunkSizeWarningLimit: 4500,
       rollupOptions: {
         output: {
           // Split the heavy 3D dependencies into their own long-lived vendor
