@@ -78,46 +78,53 @@ export async function resolveCampusLatLng(campus: Campus): Promise<{ lat: number
 // Verified precise coordinates (campus id → [lat, lng]). These render exactly
 // even without the Geocoding API enabled.
 const PRECISE: Record<string, [number, number]> = {
-  "flagship-wpb": [26.7156, -80.1105], // 2600 N Military Trail, West Palm Beach
-  "fort-lauderdale": [26.186, -80.1638], // 1500 NW 49th St
-  orlando: [28.5389, -81.3117], // 5600 Lake Underhill Rd
-  jacksonville: [30.259, -81.6028], // 6430 Southpoint Pkwy
-  sarasota: [27.3845, -82.4459], // 6151 Lake Osprey Dr, Lakewood Ranch
-  daytona: [29.2045, -81.0745], // 1800 Business Park Blvd
-  lakeland: [28.0765, -81.9806], // 2400 Interstate Dr
-  tampa: [28.02456, -82.52941], // 5002 W Waters Ave
-  miami: [25.79355, -80.38423], // 2101 NW 117th Ave
-  clearwater: [27.91921, -82.73006], // 16120 US Hwy 19 N
-  "west-palm-beach": [26.7058, -80.1475], // 2085 Vista Pkwy
-  "pembroke-pines": [26.0029, -80.3515], // 1640 SW 145th Ave
+  "flagship-wpb": [26.71421, -80.11063], // 2600 N Military Trail (OSM address)
+  "west-palm-beach": [26.71366, -80.15117], // 2085 Vista Pkwy (OSM named campus)
+  "fort-lauderdale": [26.18639, -80.16361], // 1500 NW 49th St (OSM Keiser College)
+  "graduate-school": [26.18842, -80.1672], // 1600 W Commercial Blvd
+  "online-global": [26.18806, -80.1686], // 1900 W Commercial Blvd
+  miami: [25.79354, -80.38417], // 2101 NW 117th Ave
+  "pembroke-pines": [25.99413, -80.3393], // 1640 SW 145th Ave (USGS)
+  tampa: [28.02456, -82.52941], // 5002 W Waters Ave (OSM building)
+  clearwater: [27.91921, -82.73006], // 16120 US Hwy 19 N (BBB / USGS)
   "new-port-richey": [28.2482, -82.7178], // 6300 US Hwy 19 N
-  "fort-myers": [26.6405, -81.8128], // 9100 Forum Corporate Pkwy
-  "graduate-school": [26.1862, -80.1662], // 1600 W Commercial Blvd
-  "online-global": [26.1865, -80.1698], // 1900 W Commercial Blvd
-  tallahassee: [30.4809, -84.238], // 1700 Halstead Blvd
-  melbourne: [28.0669, -80.6089], // 900 S Babcock St
-  naples: [26.1196, -81.7735], // 3909 Tamiami Trail E
-  "port-st-lucie": [27.2738, -80.3512], // 9400 SW Discovery Way
-  ocala: [29.2015, -82.1118], // 1601 NE 25th Ave
+  orlando: [28.53816, -81.31195], // 5600 Lake Underhill Rd
+  lakeland: [28.07478, -81.97914], // 2400 Interstate Dr
+  jacksonville: [30.25925, -81.60298], // 6430 Southpoint Pkwy
+  daytona: [29.20453, -81.07451], // 1800 Business Park Blvd
+  melbourne: [28.09482, -80.62302], // 900 S Babcock St (Babcock & NASA)
+  "port-st-lucie": [27.25496, -80.41993], // 9400 SW Discovery Way (Google place)
+  sarasota: [27.38453, -82.44578], // 6151 Lake Osprey Dr (OSM named campus)
+  "fort-myers": [26.62862, -81.80211], // 9100 Forum Corporate Pkwy
+  naples: [26.11776, -81.75783], // 3909 Tamiami Trail E
+  tallahassee: [30.50386, -84.24771], // 1700 Halstead Blvd (OSM named campus)
+  ocala: [29.20224, -82.10317], // 1601 NE 25th Ave
 };
 
 // Real street addresses for the remaining campuses — geocoded on demand (and
 // cached) to land the camera on the actual building. Falls back to "<name>,
 // <city>" for any campus not listed here.
 const ADDRESSES: Record<string, string> = {
-  tampa: "5002 W Waters Ave, Tampa, FL 33634",
-  miami: "2101 NW 117th Ave, Miami, FL 33172",
-  tallahassee: "1700 Halstead Blvd, Building 2, Tallahassee, FL 32309",
-  melbourne: "900 S Babcock St, Melbourne, FL 32901",
-  naples: "3909 Tamiami Trail E, Naples, FL 34112",
+  "flagship-wpb": "2600 North Military Trail, West Palm Beach, FL 33409",
+  "fort-lauderdale": "1500 Northwest 49th Street, Fort Lauderdale, FL 33309",
+  orlando: "5600 Lake Underhill Road, Orlando, FL 32807",
+  jacksonville: "6430 Southpoint Parkway, Jacksonville, FL 32216",
+  sarasota: "6151 Lake Osprey Drive, Sarasota, FL 34240",
+  daytona: "1800 Business Park Boulevard, Daytona Beach, FL 32114",
+  lakeland: "2400 Interstate Drive, Lakeland, FL 33805",
+  tampa: "5002 West Waters Avenue, Tampa, FL 33634",
+  miami: "2101 NW 117th Avenue, Miami, FL 33172",
+  tallahassee: "1700 Halstead Boulevard, Building 2, Tallahassee, FL 32309",
+  melbourne: "900 South Babcock Street, Melbourne, FL 32901",
+  naples: "3909 Tamiami Trail East, Naples, FL 34112",
   "port-st-lucie": "9400 SW Discovery Way, Port St. Lucie, FL 34987",
-  "west-palm-beach": "2085 Vista Pkwy, West Palm Beach, FL 33411",
-  "online-global": "1900 W Commercial Blvd, Suite 100, Fort Lauderdale, FL 33309",
-  "pembroke-pines": "1640 SW 145th Ave, Pembroke Pines, FL 33027",
-  "new-port-richey": "6300 US Hwy 19 N, New Port Richey, FL 34652",
-  clearwater: "16120 US Hwy 19 N, Clearwater, FL 33764",
-  "fort-myers": "9100 Forum Corporate Pkwy, Fort Myers, FL 33905",
-  "graduate-school": "1600 W Commercial Blvd, Fort Lauderdale, FL 33309",
+  "west-palm-beach": "2085 Vista Parkway, West Palm Beach, FL 33411",
+  "online-global": "1900 West Commercial Boulevard, Suite 100, Fort Lauderdale, FL 33309",
+  "pembroke-pines": "1640 SW 145th Avenue, Pembroke Pines, FL 33027",
+  "new-port-richey": "6300 US Highway 19 North, New Port Richey, FL 34652",
+  clearwater: "16120 U.S. Highway 19 North, Clearwater, FL 33764",
+  "fort-myers": "9100 Forum Corporate Parkway, Fort Myers, FL 33905",
+  "graduate-school": "1600 West Commercial Boulevard, Fort Lauderdale, FL 33309",
   ocala: "1601 NE 25th Avenue, Suite 602, Ocala, FL 34470",
   "latin-american": "Gasolinera UNO, 2 c. al Sur, San Marcos, Carazo 45000, Nicaragua",
   managua: "Offiplaza San Dionisio, Pista Suburbana, Managua, Nicaragua",

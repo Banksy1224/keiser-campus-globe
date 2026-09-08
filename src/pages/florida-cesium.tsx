@@ -5,7 +5,9 @@ import "./florida-cesium.css";
 import { FLAME_GOLD, campusById, type Campus } from "../lib/campus-data";
 import { campusLatLng, resolveCampusLatLng, GOOGLE_KEY } from "../lib/campus-location";
 import {
-  FLORIDA_INTRO_SEATS,
+  INTRO_CAMPUS_IDS,
+  TILE_FOCUS_SSE,
+  TILE_OVERVIEW_SSE,
   campusApproach,
   drawCampusPin,
   floridaOverviewSeat,
@@ -23,6 +25,7 @@ type CesiumNS = typeof import("cesium");
 type Viewer = import("cesium").Viewer;
 type Entity = import("cesium").Entity;
 type Cartesian3 = import("cesium").Cartesian3;
+type Cesium3DTileset = import("cesium").Cesium3DTileset;
 
 const PIN_PREFIX = "campus:";
 const PULSE_PREFIX = "pulse:";
@@ -46,7 +49,6 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => window.setTimeout(resolve, ms));
 }
 
-/** Heading/pitch from `from` looking at `to` in the local ENU frame. */
 function headingPitchFromTo(C: CesiumNS, from: Cartesian3, to: Cartesian3) {
   const enu = C.Transforms.eastNorthUpToFixedFrame(from);
   const inv = C.Matrix4.inverseTransformation(enu, new C.Matrix4());
@@ -93,10 +95,60 @@ function applySeat(C: CesiumNS, viewer: Viewer, seat: CameraSeat, animate: boole
   });
 }
 
+function setTilesetSse(tileset: Cesium3DTileset | null, focused: boolean, lowPower: boolean) {
+  if (!tileset || tileset.isDestroyed()) return;
+  const table = focused ? TILE_FOCUS_SSE : TILE_OVERVIEW_SSE;
+  tileset.maximumScreenSpaceError = lowPower ? table.lowPower : table.normal;
+}
+
+async function waitForVisibleTiles(
+  tileset: Cesium3DTileset | null,
+  timeoutMs: number,
+  isCancelled: () => boolean,
+): Promise<void> {
+  if (!tileset || tileset.isDestroyed()) return;
+  // After flyTo, tilesLoaded can still be true from the previous view until
+  // the new frustum queues tiles. Wait for that flip, then for idle.
+  await sleep(280);
+  const started = performance.now();
+  while (
+    !isCancelled() &&
+    !tileset.isDestroyed() &&
+    tileset.tilesLoaded &&
+    performance.now() - started < 900
+  ) {
+    await sleep(80);
+  }
+  if (isCancelled() || tileset.isDestroyed() || tileset.tilesLoaded) return;
+
+  await new Promise<void>((resolve) => {
+    let settled = false;
+    const finish = () => {
+      if (settled) return;
+      settled = true;
+      window.clearTimeout(timer);
+      remove?.();
+      resolve();
+    };
+    const remove = tileset.allTilesLoaded.addEventListener(() => finish());
+    const remain = Math.max(400, timeoutMs - (performance.now() - started));
+    const timer = window.setTimeout(finish, remain);
+    const poll = () => {
+      if (settled) return;
+      if (isCancelled() || tileset.isDestroyed() || tileset.tilesLoaded) {
+        finish();
+        return;
+      }
+      window.setTimeout(poll, 140);
+    };
+    poll();
+  });
+}
+
 async function samplePoiHeight(C: CesiumNS, viewer: Viewer, lat: number, lng: number): Promise<number> {
   const carto = C.Cartographic.fromDegrees(lng, lat);
   try {
-    await Promise.race([viewer.scene.sampleHeightMostDetailed([carto]), sleep(1800)]);
+    await Promise.race([viewer.scene.sampleHeightMostDetailed([carto]), sleep(4000)]);
   } catch {
     /* ellipsoid / no tile yet */
   }
@@ -116,7 +168,7 @@ function flyToSphere(
   rangeM: number,
   duration: number,
 ): Promise<void> {
-  const sphere = new C.BoundingSphere(target, 24);
+  const sphere = new C.BoundingSphere(target, 10);
   const offset = new C.HeadingPitchRange(C.Math.toRadians(headingDeg), C.Math.toRadians(pitchDeg), rangeM);
   if (duration <= 0) {
     viewer.camera.viewBoundingSphere(sphere, offset);
@@ -139,14 +191,19 @@ async function flyToCampusPoi(
   campus: Campus,
   compact: boolean,
   animate: boolean,
+  tileset: Cesium3DTileset | null,
+  lowPower: boolean,
+  isCancelled: () => boolean,
 ): Promise<void> {
   const loc = await resolveCampusLatLng(campus);
+  if (isCancelled()) return;
   const approach = campusApproach(compact, Boolean(campus.flagship));
   const controller = viewer.scene.screenSpaceCameraController;
-  const prevCollision = controller.enableCollisionDetection;
   controller.enableCollisionDetection = false;
+  setTilesetSse(tileset, true, lowPower);
 
   const firstHeight = await samplePoiHeight(C, viewer, loc.lat, loc.lng);
+  if (isCancelled()) return;
   const firstTarget = poiCartesian(C, loc.lat, loc.lng, firstHeight, approach.lookUpM);
   await flyToSphere(
     C,
@@ -157,31 +214,31 @@ async function flyToCampusPoi(
     approach.rangeM,
     animate ? approach.duration : 0,
   );
+  if (isCancelled()) return;
 
-  // Tiles near the POI often finish after the first sample — refine so we
-  // don't sit looking at the ellipsoid while buildings pop in beside us.
-  await sleep(animate ? 450 : 0);
+  // Arrival used to race sampleHeightMostDetailed before any destination
+  // tiles existed. Wait for visible LOD, then always refine onto the mesh.
+  await waitForVisibleTiles(tileset, animate ? 6000 : 2500, isCancelled);
+  if (isCancelled()) return;
+
   const settledHeight = await samplePoiHeight(C, viewer, loc.lat, loc.lng);
-  if (Math.abs(settledHeight - firstHeight) > 10) {
-    const refined = poiCartesian(C, loc.lat, loc.lng, settledHeight, approach.lookUpM);
-    await flyToSphere(
-      C,
-      viewer,
-      refined,
-      approach.headingDeg,
-      approach.pitchDeg,
-      approach.rangeM,
-      animate ? 0.65 : 0,
-    );
-  }
-
-  controller.enableCollisionDetection = prevCollision;
+  if (isCancelled()) return;
+  const refined = poiCartesian(C, loc.lat, loc.lng, settledHeight, approach.lookUpM);
+  await flyToSphere(
+    C,
+    viewer,
+    refined,
+    approach.headingDeg,
+    approach.pitchDeg,
+    approach.rangeM,
+    animate ? 0.7 : 0,
+  );
 }
 
 function stylePin(C: CesiumNS, entity: Entity, selected: boolean, hovered: boolean, number: number, flagship: boolean) {
   if (entity.billboard) {
     entity.billboard.image = new C.ConstantProperty(drawCampusPin({ number, selected, hovered, flagship }));
-    entity.billboard.scale = new C.ConstantProperty(selected ? 1.08 : hovered ? 1.04 : 1);
+    entity.billboard.scale = new C.ConstantProperty(selected ? 1.06 : hovered ? 1.03 : 1);
   }
   if (entity.label) {
     entity.label.show = new C.ConstantProperty(selected || hovered);
@@ -202,10 +259,11 @@ export default function FloridaCesiumView({
   const containerRef = useRef<HTMLDivElement>(null);
   const viewerRef = useRef<Viewer | null>(null);
   const cesiumRef = useRef<CesiumNS | null>(null);
+  const tilesetRef = useRef<Cesium3DTileset | null>(null);
   const introGen = useRef(0);
   const lastFlyId = useRef<string | null | undefined>(undefined);
-  const propsRef = useRef({ onHover, onSelect, onIntroFinished, compact, onTilesFailed });
-  propsRef.current = { onHover, onSelect, onIntroFinished, compact, onTilesFailed };
+  const propsRef = useRef({ onHover, onSelect, onIntroFinished, compact, onTilesFailed, lowPower });
+  propsRef.current = { onHover, onSelect, onIntroFinished, compact, onTilesFailed, lowPower };
 
   const [phase, setPhase] = useState<"loading" | "ready" | "error">("loading");
   const [error, setError] = useState<string | null>(null);
@@ -277,9 +335,9 @@ export default function FloridaCesiumView({
       viewer.scene.backgroundColor = C.Color.fromCssColorString("#0b1c33");
       viewer.scene.fog.enabled = false;
       const controller = viewer.scene.screenSpaceCameraController;
-      controller.minimumZoomDistance = 80;
+      controller.minimumZoomDistance = 18;
       controller.maximumZoomDistance = compact ? 1.5e6 : 9.5e5;
-      controller.enableCollisionDetection = true;
+      controller.enableCollisionDetection = false;
       viewer.clock.shouldAnimate = true;
       viewerRef.current = viewer;
       lastFlyId.current = undefined;
@@ -304,8 +362,8 @@ export default function FloridaCesiumView({
             horizontalOrigin: C.HorizontalOrigin.CENTER,
             heightReference: C.HeightReference.CLAMP_TO_3D_TILE,
             disableDepthTestDistance: Number.POSITIVE_INFINITY,
-            // Small when landed (tiles stay visible); readable on the overview.
-            scaleByDistance: new C.NearFarScalar(220, 0.4, 220_000, 0.78),
+            scaleByDistance: new C.NearFarScalar(60, 0.12, 90_000, 0.7),
+            translucencyByDistance: new C.NearFarScalar(50, 0.18, 260, 1),
           },
           label: {
             text: `${number} · ${campus.city}`,
@@ -315,7 +373,7 @@ export default function FloridaCesiumView({
             outlineWidth: 4,
             style: C.LabelStyle.FILL_AND_OUTLINE,
             verticalOrigin: C.VerticalOrigin.BOTTOM,
-            pixelOffset: new C.Cartesian2(0, -42),
+            pixelOffset: new C.Cartesian2(0, -28),
             show: false,
             heightReference: C.HeightReference.RELATIVE_TO_3D_TILE,
             disableDepthTestDistance: Number.POSITIVE_INFINITY,
@@ -328,15 +386,15 @@ export default function FloridaCesiumView({
           ellipse: {
             semiMajorAxis: new C.CallbackProperty(() => {
               const t = (performance.now() / 1000) * 1.7;
-              return 8 + 16 * (0.5 + 0.5 * Math.sin(t * Math.PI * 2));
+              return 6 + 10 * (0.5 + 0.5 * Math.sin(t * Math.PI * 2));
             }, false),
             semiMinorAxis: new C.CallbackProperty(() => {
               const t = (performance.now() / 1000) * 1.7;
-              return 8 + 16 * (0.5 + 0.5 * Math.sin(t * Math.PI * 2));
+              return 6 + 10 * (0.5 + 0.5 * Math.sin(t * Math.PI * 2));
             }, false),
-            material: gold.withAlpha(0.28),
+            material: gold.withAlpha(0.26),
             outline: true,
-            outlineColor: gold.withAlpha(0.75),
+            outlineColor: gold.withAlpha(0.7),
             heightReference: C.HeightReference.CLAMP_TO_3D_TILE,
           },
         });
@@ -381,8 +439,8 @@ export default function FloridaCesiumView({
           { key: apiKey, onlyUsingWithGoogleGeocoder: true },
           {
             showCreditsOnScreen: true,
-            maximumScreenSpaceError: lowPower ? 16 : 8,
-            enableCollision: true,
+            maximumScreenSpaceError: lowPower ? TILE_OVERVIEW_SSE.lowPower : TILE_OVERVIEW_SSE.normal,
+            enableCollision: false,
           },
         );
         if (cancelled) {
@@ -390,6 +448,7 @@ export default function FloridaCesiumView({
           return;
         }
         viewer.scene.primitives.add(tileset);
+        tilesetRef.current = tileset;
         let sawContent = false;
         tileset.tileLoad.addEventListener(() => {
           sawContent = true;
@@ -418,6 +477,7 @@ export default function FloridaCesiumView({
       window.clearTimeout(bootTimer);
       introGen.current += 1;
       handler?.destroy();
+      tilesetRef.current = null;
       if (viewer && !viewer.isDestroyed()) viewer.destroy();
       viewerRef.current = null;
       cesiumRef.current = null;
@@ -450,14 +510,25 @@ export default function FloridaCesiumView({
     const gen = ++introGen.current;
     const reduce = prefersReducedMotion();
     const selected = selectedId ? campusById(selectedId) : null;
+    const isCancelled = () => introGen.current !== gen;
 
     const flyCampus = (campus: Campus, animate: boolean) => {
       lastFlyId.current = campus.id;
-      return flyToCampusPoi(C, viewer, campus, compact, animate);
+      return flyToCampusPoi(
+        C,
+        viewer,
+        campus,
+        compact,
+        animate,
+        tilesetRef.current,
+        lowPower,
+        isCancelled,
+      );
     };
 
     const flyOverview = (animate: boolean) => {
       lastFlyId.current = null;
+      setTilesetSse(tilesetRef.current, false, lowPower);
       return applySeat(C, viewer, floridaOverviewSeat(compact), animate);
     };
 
@@ -466,13 +537,15 @@ export default function FloridaCesiumView({
     if (playIntro && !reduce && !selected) {
       lastFlyId.current = undefined;
       void (async () => {
-        for (const seat of FLORIDA_INTRO_SEATS) {
-          if (introGen.current !== gen) return;
-          await applySeat(C, viewer, seat, seat.duration > 0);
+        for (const id of INTRO_CAMPUS_IDS) {
+          if (isCancelled()) return;
+          const campus = campusById(id);
+          if (!campus) continue;
+          await flyCampus(campus, true);
         }
-        if (introGen.current !== gen) return;
+        if (isCancelled()) return;
         await flyOverview(true);
-        if (introGen.current === gen) propsRef.current.onIntroFinished();
+        if (!isCancelled()) propsRef.current.onIntroFinished();
       })();
       return;
     }
@@ -486,7 +559,7 @@ export default function FloridaCesiumView({
 
     void flyOverview(!reduce && lastFlyId.current !== undefined);
     if (playIntro) propsRef.current.onIntroFinished();
-  }, [playIntro, selectedId, compact, engineReady]);
+  }, [playIntro, selectedId, compact, engineReady, lowPower]);
 
   return (
     <div className="florida-cesium-root absolute inset-0 bg-keiser-navy">
