@@ -256,11 +256,15 @@ last resort.
 
 **Backend (Railway `server/`):** the sheet ALSO POSTs `/api/rfi` (same-origin, or
 `${VITE_AI_ENDPOINT}/api/rfi`). The server validates with zod, rate-limits,
-drops honeypots, persists to `rfi_inquiries` when `DATABASE_URL` is set (memory
-fallback otherwise so prospects never 500), emails the campus admissions inbox
-via SMTP, and optionally POSTs `RFI_WEBHOOK_URL` for a later CRM. Destination
-emails come from each campus's published inbox, with corridor fallbacks
-(Flagship → WPB, Graduate / Online / Shanghai → FTL). See `server/README.md`.
+drops honeypots, and persists to `rfi_inquiries` when `DATABASE_URL` is set
+(memory fallback otherwise so prospects never 500). Admissions email is sent
+only when `SMTP_HOST` and `SMTP_FROM` are both set (`SMTP_PORT`, `SMTP_USER`,
+and `SMTP_PASS` if the relay needs them). If those are unset, the inquiry is
+still saved and the API returns a partial success (`emailed: false`) — the
+sheet says the request was saved and was not emailed. Optional
+`RFI_WEBHOOK_URL` is a later CRM hook. Destination emails come from each
+campus's published inbox, with corridor fallbacks (Flagship → WPB, Graduate /
+Online / Shanghai → FTL). See `server/README.md`.
 
 This is the **Keiser Globe** product. It does not write SEC Genie tables.
 

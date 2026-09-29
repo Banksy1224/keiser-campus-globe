@@ -11,18 +11,11 @@ import {
 import { campusById } from "./rfi-campuses.js";
 import { persistRfiInquiry, updateRfiDispatch } from "./rfi-store.js";
 import { dispatchRfi, isSmtpReady } from "./rfi-dispatch.js";
+import { clientIp } from "./client-ip.js";
 
 const RATE_LIMIT = 5;
 const RATE_WINDOW_MS = 15 * 60 * 1000;
 const hits = new Map();
-
-function clientIp(req) {
-  const forwarded = req.headers["x-forwarded-for"];
-  if (typeof forwarded === "string" && forwarded.length) {
-    return forwarded.split(",")[0].trim();
-  }
-  return req.ip || req.socket.remoteAddress || "unknown";
-}
 
 function allowRequest(ip) {
   const now = Date.now();
@@ -34,6 +27,31 @@ function allowRequest(ip) {
   recent.push(now);
   hits.set(ip, recent);
   return true;
+}
+
+function rfiPublicResult(dispatch, extra) {
+  const emailed = Boolean(dispatch.emailed);
+  const emailSkipped = !emailed;
+  const smtpConfigured = Boolean(dispatch.smtpConfigured);
+  let message;
+  if (emailed) {
+    message = "Inquiry saved and emailed to admissions.";
+  } else if (!smtpConfigured) {
+    message = "Inquiry saved. Email was not sent because SMTP is not configured.";
+  } else {
+    message = "Inquiry saved. Email was not sent.";
+  }
+  return {
+    ok: true,
+    partial: emailSkipped,
+    emailed,
+    emailSkipped,
+    webhooked: Boolean(dispatch.webhooked),
+    smtpConfigured,
+    message,
+    warnings: dispatch.warnings ?? [],
+    ...extra,
+  };
 }
 
 function flattenZod(error) {
@@ -63,12 +81,16 @@ export function registerRfiRoutes(app) {
       console.warn("RFI abuse: honeypot filled");
       return res.json({
         ok: true,
+        partial: false,
         id: 0,
         emailed: false,
+        emailSkipped: false,
         webhooked: false,
         smtpConfigured: isSmtpReady(),
         persisted: false,
         durable: false,
+        message: "Request received.",
+        warnings: [],
       });
     }
 
@@ -139,14 +161,12 @@ export function registerRfiRoutes(app) {
       await updateRfiDispatch(row.id, { emailed: dispatch.emailed, webhooked: dispatch.webhooked }, durable);
     }
 
-    return res.json({
-      ok: true,
-      id: row.id,
-      emailed: dispatch.emailed,
-      webhooked: dispatch.webhooked,
-      smtpConfigured: dispatch.smtpConfigured,
-      persisted: true,
-      durable,
-    });
+    return res.json(
+      rfiPublicResult(dispatch, {
+        id: row.id,
+        persisted: true,
+        durable,
+      }),
+    );
   });
 }

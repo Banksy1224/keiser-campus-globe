@@ -202,6 +202,16 @@ export type RfiDispatchFlags = {
 export type RfiSubmitResponse = RfiDispatchFlags & {
   ok: true;
   id: number;
+  /** True when the inquiry was accepted but admissions email was not sent. */
+  partial: boolean;
+  /** True when admissions email was not sent. */
+  emailSkipped: boolean;
+  /**
+   * Status for API clients. Claims email was sent only when `emailed` is true.
+   * When SMTP is unset this is a partial success: the row was still saved.
+   */
+  message: string;
+  warnings?: string[];
 };
 
 /**
