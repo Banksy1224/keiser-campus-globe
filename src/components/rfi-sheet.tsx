@@ -54,6 +54,10 @@ const COPY = {
     locked: "From your selected pin",
     successTitle: "Request received",
     successBody: "Thank you. {campus} admissions will follow up using the contact you provided.",
+    successBodyEmailSkipped:
+      "Thank you. We saved your request, but it was not emailed to {campus} admissions because email delivery is not configured. Please call admissions or apply online so they can follow up.",
+    successBodyEmailFailed:
+      "Thank you. We saved your request, but the email to {campus} admissions could not be sent. Please call admissions or apply online so they can follow up.",
     apply: "Apply now",
     call: "Call admissions",
     error: "We couldn’t send that. Check the highlighted fields and try again.",
@@ -84,6 +88,10 @@ const COPY = {
     locked: "Según el pin seleccionado",
     successTitle: "Solicitud recibida",
     successBody: "Gracias. Admisiones de {campus} te contactará con los datos que proporcionaste.",
+    successBodyEmailSkipped:
+      "Gracias. Guardamos tu solicitud, pero no se envió por correo a admisiones de {campus} porque el envío de correo no está configurado. Llama a admisiones o aplica en línea para que puedan contactarte.",
+    successBodyEmailFailed:
+      "Gracias. Guardamos tu solicitud, pero no se pudo enviar el correo a admisiones de {campus}. Llama a admisiones o aplica en línea para que puedan contactarte.",
     apply: "Aplicar ahora",
     call: "Llamar a admisiones",
     error: "No pudimos enviar eso. Revisa los campos marcados e inténtalo de nuevo.",
@@ -114,51 +122,83 @@ function rfiEndpoints(): string[] {
   return [...urls];
 }
 
-async function postJson(url: string, body: unknown): Promise<boolean> {
-  const res = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Accept: "application/json" },
-    body: JSON.stringify(body),
-  });
-  if (!res.ok) return false;
-  const json = (await res.json().catch(() => null)) as RfiSubmitResponse | { success?: boolean } | null;
-  if (!json) return false;
-  if ("ok" in json && json.ok) return true;
-  if ("success" in json && json.success) return true;
-  return false;
+type SubmitOutcome =
+  | { ok: false }
+  | { ok: true; emailSkipped: false }
+  | { ok: true; emailSkipped: true; smtpConfigured: boolean };
+
+async function postBackend(url: string, body: unknown): Promise<RfiSubmitResponse | null> {
+  try {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) return null;
+    const json = (await res.json().catch(() => null)) as RfiSubmitResponse | null;
+    if (!json || json.ok !== true) return null;
+    return json;
+  } catch {
+    return null;
+  }
 }
 
-async function submitRfi(payload: Record<string, unknown>, campus: Campus): Promise<boolean> {
-  const results = await Promise.allSettled(rfiEndpoints().map((url) => postJson(url, payload)));
-  const backendOk = results.some((r) => r.status === "fulfilled" && r.value);
+async function postWeb3Forms(payload: Record<string, unknown>, campus: Campus): Promise<boolean> {
+  const res = await fetch("https://api.web3forms.com/submit", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Accept: "application/json" },
+    body: JSON.stringify({
+      access_key: WEB3FORMS_KEY,
+      subject: `Campus tour RFI · ${campus.name} · ${payload.program}`,
+      from_name: "Keiser Campus Globe",
+      name: `${payload.firstName} ${payload.lastName}`,
+      email: payload.email,
+      phone: payload.phone,
+      campus: campus.name,
+      campus_id: campus.id,
+      program: payload.program,
+      start_term: payload.startTerm,
+      education_level: payload.educationLevel,
+      modality: payload.modality,
+      language: payload.language,
+      source: RFI_SOURCE,
+      utm_source: RFI_UTM_SOURCE,
+      tcpa_consent: "yes",
+    }),
+  });
+  if (!res.ok) return false;
+  const json = (await res.json().catch(() => null)) as { success?: boolean } | null;
+  return Boolean(json?.success);
+}
+
+async function submitRfi(payload: Record<string, unknown>, campus: Campus): Promise<SubmitOutcome> {
+  const hits = (
+    await Promise.all(rfiEndpoints().map((url) => postBackend(url, payload)))
+  ).filter((hit): hit is RfiSubmitResponse => hit !== null);
 
   let web3Ok = false;
   if (WEB3FORMS_KEY) {
     try {
-      web3Ok = await postJson("https://api.web3forms.com/submit", {
-        access_key: WEB3FORMS_KEY,
-        subject: `Campus tour RFI · ${campus.name} · ${payload.program}`,
-        from_name: "Keiser Campus Globe",
-        name: `${payload.firstName} ${payload.lastName}`,
-        email: payload.email,
-        phone: payload.phone,
-        campus: campus.name,
-        campus_id: campus.id,
-        program: payload.program,
-        start_term: payload.startTerm,
-        education_level: payload.educationLevel,
-        modality: payload.modality,
-        language: payload.language,
-        source: RFI_SOURCE,
-        utm_source: RFI_UTM_SOURCE,
-        tcpa_consent: "yes",
-      });
+      web3Ok = await postWeb3Forms(payload, campus);
     } catch {
       web3Ok = false;
     }
   }
 
-  return backendOk || web3Ok;
+  if (!hits.length && !web3Ok) return { ok: false };
+  // Web3Forms delivers its own email. A backend `emailed` flag does too.
+  if (web3Ok || hits.some((hit) => hit.emailed)) return { ok: true, emailSkipped: false };
+
+  const saved = hits.filter((hit) => hit.persisted);
+  if (saved.length) {
+    return {
+      ok: true,
+      emailSkipped: true,
+      smtpConfigured: saved.some((hit) => hit.smtpConfigured),
+    };
+  }
+  // Honeypot-style ack: accepted, nothing stored, and no email claim.
+  return { ok: true, emailSkipped: false };
 }
 
 export default function RfiSheet({
@@ -181,6 +221,8 @@ export default function RfiSheet({
   );
   const [step, setStep] = useState<1 | 2>(1);
   const [success, setSuccess] = useState(false);
+  const [emailSkipped, setEmailSkipped] = useState(false);
+  const [smtpConfigured, setSmtpConfigured] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
@@ -204,6 +246,8 @@ export default function RfiSheet({
     setLang(language ?? defaultRfiLanguage(campus, searchQuery));
     setStep(1);
     setSuccess(false);
+    setEmailSkipped(false);
+    setSmtpConfigured(false);
     setSubmitting(false);
     setFormError(null);
     setFieldErrors({});
@@ -285,8 +329,10 @@ export default function RfiSheet({
     setSubmitting(true);
     setFormError(null);
     try {
-      const ok = await submitRfi(result.data as unknown as Record<string, unknown>, campus);
-      if (ok) {
+      const outcome = await submitRfi(result.data as unknown as Record<string, unknown>, campus);
+      if (outcome.ok) {
+        setEmailSkipped(outcome.emailSkipped);
+        setSmtpConfigured(outcome.emailSkipped ? outcome.smtpConfigured : false);
         setSuccess(true);
         return;
       }
@@ -305,6 +351,8 @@ export default function RfiSheet({
         window.location.href = `mailto:${FALLBACK_EMAIL}?subject=${encodeURIComponent(
           `Campus tour RFI · ${campus.name}`,
         )}&body=${encodeURIComponent(body)}`;
+        setEmailSkipped(false);
+        setSmtpConfigured(false);
         setSuccess(true);
         return;
       }
@@ -317,6 +365,13 @@ export default function RfiSheet({
   };
 
   const phones = campusPhones(campus);
+  const successBody = (
+    emailSkipped
+      ? smtpConfigured
+        ? t.successBodyEmailFailed
+        : t.successBodyEmailSkipped
+      : t.successBody
+  ).replace("{campus}", campus.name);
 
   return (
     <div className="absolute inset-0 z-50 flex items-end justify-center p-0 sm:items-center sm:p-4">
@@ -328,7 +383,7 @@ export default function RfiSheet({
             <h2 className="font-display text-xl font-bold uppercase tracking-wide text-white">
               {success ? t.successTitle : t.title}
             </h2>
-            <p className="mt-0.5 text-sm text-slate-300">{success ? t.successBody.replace("{campus}", campus.name) : t.locked}</p>
+            <p className="mt-0.5 text-sm text-slate-300">{success ? successBody : t.locked}</p>
           </div>
           <div className="flex shrink-0 items-center gap-2">
             {showLangToggle && !success && (
@@ -372,7 +427,7 @@ export default function RfiSheet({
                   <path d="M20 6 9 17l-5-5" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
               </div>
-              <p className="text-sm text-slate-300">{t.successBody.replace("{campus}", campus.name)}</p>
+              <p className="text-sm text-slate-300">{successBody}</p>
               <div className="flex flex-wrap gap-2">
                 <a
                   href={APPLY_URL}

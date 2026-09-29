@@ -49,7 +49,15 @@ export default function AIConcierge({
       const res = await fetch(`${ENDPOINT}/api/chat`, {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ messages: next, campuses: ROSTER }),
+        body: JSON.stringify({
+          // Match the server cap (last 12 turns, 2000 chars) so a long chat
+          // stays under the 64kb body limit.
+          messages: next.slice(-12).map((m) => ({
+            role: m.role,
+            content: m.content.slice(0, 2000),
+          })),
+          campuses: ROSTER,
+        }),
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
       const data = (await res.json()) as { reply: string; campusIds?: string[] };
