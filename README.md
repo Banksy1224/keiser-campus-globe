@@ -30,7 +30,7 @@ Built as a **tour and admissions tool** for prospective students.
 **Florida map (photoreal 3D)**
 - A **Florida map** toggle opens **Google Photorealistic 3D Tiles** of the state (CesiumJS + Map Tiles API): real buildings and terrain, tilted like Google Maps 3D — not a flat poster. The rotating Three.js Earth globe is unchanged.
 - All catalog Florida sites stay pinned at their real `lat`/`lng` (19 career / Flagship campuses plus Graduate School and Online on the Fort Lauderdale corridor). Flagship and West Palm Beach stay separate. Miami is one site.
-- Each campus is a **small gold pin + ground ring** on the photoreal mesh so Google’s real 3D buildings stay visible. The selected pin **pulses**. Click a pin or a left-rail row to **fly to** that campus and look at the actual buildings (not empty terrain beside the marker). The stylized peninsula fallback still uses volumetric campus skylines.
+- Each campus is a **small gold pin + ground ring** on the photoreal mesh so Google’s real 3D buildings stay visible. Pins nearly hide when the camera is close. Click a pin or a left-rail row to **fly to street scale** (~110–200 m, pitch ≈ −50°) and wait for tiles before a height refine. Intro hops Miami → Fort Lauderdale → Flagship → Orlando at that same framing. The stylized peninsula fallback still uses volumetric campus skylines.
 - Default / `?view=florida` frames the peninsula (Keys → panhandle). Opening cinematic is skippable and honors `prefers-reduced-motion`.
 - Deep link: `?view=florida` or `?view=florida&campus=miami`.
 - Without `VITE_GOOGLE_MAPS_API_KEY`, Florida shows a clear in-app message and keeps the stylized 3D peninsula so embed / local preview still work.

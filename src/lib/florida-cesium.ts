@@ -13,10 +13,8 @@ export interface CameraSeat {
   lng: number;
   lat: number;
   height: number;
-  /** Used when lookLat/lookLng are omitted. */
   heading?: number;
   pitch?: number;
-  /** Look-at target so the intro actually points at land / a campus, not empty Gulf. */
   lookLng?: number;
   lookLat?: number;
   lookHeight?: number;
@@ -47,15 +45,12 @@ export function floridaOverviewSeat(compact: boolean): CameraSeat {
 }
 
 /**
- * Look-at framing for a campus POI.
+ * Street / campus-scale look-at for a photoreal POI.
  *
- * The previous approach placed the camera south of the pin (`lat - offset`)
- * with a fixed heading/pitch. That look ray hit the ground hundreds of meters
- * past (and east of) the campus — empty lots, not the Google buildings.
- * `flyToBoundingSphere` + this offset keeps the photoreal campus centered.
- *
- * Compact uses a steeper pitch so the POI sits in the upper half of the
- * viewport, above the mobile campus sheet.
+ * Range 110–200 m + pitch ≈ −50° is close enough for Google Photorealistic
+ * building LOD. 330–560 m (the previous framing) stayed in terrain/tree LOD
+ * and looked like “no buildings.” Compact is slightly farther/steeper so the
+ * POI sits above the mobile campus sheet.
  */
 export interface CampusApproach {
   headingDeg: number;
@@ -67,28 +62,23 @@ export interface CampusApproach {
 
 export function campusApproach(compact: boolean, flagship: boolean): CampusApproach {
   return {
-    headingDeg: 22,
-    pitchDeg: compact ? -38 : -30,
-    rangeM: flagship ? (compact ? 560 : 440) : compact ? 430 : 330,
-    lookUpM: 18,
-    duration: compact ? 1.3 : 1.55,
+    headingDeg: 28,
+    pitchDeg: compact ? -52 : -48,
+    rangeM: flagship ? (compact ? 200 : 180) : compact ? 150 : 110,
+    lookUpM: flagship ? 12 : 8,
+    duration: compact ? 1.35 : 1.55,
   };
 }
 
-/** Intro drone path: Keys → Miami → east coast → I-4 → panhandle, each looking at land. */
-export const FLORIDA_INTRO_SEATS: CameraSeat[] = [
-  { lng: -81.78, lat: 24.5, height: 9_500, lookLng: -81.45, lookLat: 24.7, lookHeight: 20, duration: 0 },
-  { lng: -80.18, lat: 25.42, height: 14_000, lookLng: -80.384, lookLat: 25.794, lookHeight: 20, duration: 2.15 },
-  { lng: -80.0, lat: 26.02, height: 16_000, lookLng: -80.164, lookLat: 26.186, lookHeight: 20, duration: 1.7 },
-  { lng: -79.98, lat: 26.48, height: 20_000, lookLng: -80.11, lookLat: 26.716, lookHeight: 20, duration: 1.75 },
-  { lng: -80.22, lat: 27.55, height: 26_000, lookLng: -80.609, lookLat: 28.067, lookHeight: 20, duration: 1.8 },
-  { lng: -81.0, lat: 28.05, height: 36_000, lookLng: -81.312, lookLat: 28.539, lookHeight: 20, duration: 1.85 },
-  { lng: -83.15, lat: 30.05, height: 72_000, lookLng: -84.238, lookLat: 30.481, lookHeight: 20, duration: 2.05 },
-];
+/** Intro hops these real campuses at the same street-scale framing (not overlooks). */
+export const INTRO_CAMPUS_IDS = ["miami", "fort-lauderdale", "flagship", "orlando"] as const;
+
+export const TILE_FOCUS_SSE = { lowPower: 4, normal: 2 } as const;
+export const TILE_OVERVIEW_SSE = { lowPower: 16, normal: 8 } as const;
 
 const NAVY = "#0b1c33";
 
-/** Small gold pin — readable on the overview, tiny when landed so tiles stay the hero. */
+/** Small gold pin — almost hidden when landed so photoreal tiles stay the hero. */
 export function drawCampusPin(opts: {
   number: number;
   selected: boolean;
@@ -96,20 +86,20 @@ export function drawCampusPin(opts: {
   flagship?: boolean;
 }): HTMLCanvasElement {
   const canvas = document.createElement("canvas");
-  canvas.width = 56;
-  canvas.height = 70;
+  canvas.width = 48;
+  canvas.height = 60;
   const ctx = canvas.getContext("2d");
   if (!ctx) return canvas;
 
   const hot = opts.selected || opts.hovered;
-  const r = opts.selected ? 16 : opts.hovered ? 15 : opts.flagship ? 14 : 13;
-  const cx = 28;
-  const cy = 8 + r;
+  const r = opts.selected ? 13 : opts.hovered ? 12 : opts.flagship ? 12 : 11;
+  const cx = 24;
+  const cy = 7 + r;
 
   ctx.beginPath();
   ctx.moveTo(cx - r * 0.55, cy + r * 0.38);
-  ctx.quadraticCurveTo(cx - 3, cy + r + 6, cx, 66);
-  ctx.quadraticCurveTo(cx + 3, cy + r + 6, cx + r * 0.55, cy + r * 0.38);
+  ctx.quadraticCurveTo(cx - 2.5, cy + r + 5, cx, 56);
+  ctx.quadraticCurveTo(cx + 2.5, cy + r + 5, cx + r * 0.55, cy + r * 0.38);
   ctx.closePath();
   ctx.fillStyle = FLAME_GOLD;
   ctx.fill();
@@ -118,12 +108,12 @@ export function drawCampusPin(opts: {
   ctx.arc(cx, cy, r, 0, Math.PI * 2);
   ctx.fillStyle = hot ? FLAME_GOLD : NAVY;
   ctx.fill();
-  ctx.lineWidth = opts.selected ? 3 : 2;
+  ctx.lineWidth = opts.selected ? 2.5 : 2;
   ctx.strokeStyle = FLAME_GOLD;
   ctx.stroke();
 
   ctx.fillStyle = hot ? NAVY : FLAME_GOLD;
-  ctx.font = `700 ${opts.number > 9 ? 15 : 17}px "Barlow Condensed", system-ui, sans-serif`;
+  ctx.font = `700 ${opts.number > 9 ? 13 : 15}px "Barlow Condensed", system-ui, sans-serif`;
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
   ctx.fillText(String(opts.number), cx, cy + 1);
